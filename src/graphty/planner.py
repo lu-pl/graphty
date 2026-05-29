@@ -1,0 +1,247 @@
+from collections.abc import Callable, Iterable, Iterator
+from dataclasses import dataclass
+from functools import reduce
+from typing import Annotated, Literal, cast, get_args
+
+import polars as pl
+from pydantic import BaseModel, Discriminator, Tag
+from pydantic import ConfigDict as PydanticConfigDict
+from pydantic.fields import FieldInfo
+from typing_extensions import TypeForm
+
+from graphty.utils.type_utils import (
+    is_list_pydantic_model_static_type,
+    is_list_static_type,
+    is_pydantic_model_static_type,
+    is_pydantic_model_union_static_type,
+)
+
+
+class ConfigDict(PydanticConfigDict):
+    group_by: str
+
+
+@dataclass
+class Agg:
+    """Configuration class for aggregation fields.
+
+    The class allows to configure aggregation behavior for
+    model fields with aggretation targets:
+
+    E.g. `field: typing.Annotated[list[int], Agg(unique=False)]`
+    will aggregate non-unique values of a given partition into `field`.
+
+    Note: This is a draft and likely subject of breaking API changes.
+    """
+
+    unique: bool = True
+    drop_nulls: bool = True
+
+    def __iter__(self) -> Iterator[Callable[[pl.Expr], pl.Expr]]:
+        if self.unique:
+            yield lambda expr: expr.unique()
+        if self.drop_nulls:
+            yield lambda expr: expr.drop_nulls()
+
+    def apply_to(self, expr: pl.Expr) -> pl.Expr:
+        return reduce(lambda x, y: y(x), self, expr)
+
+
+class ModelUnionDispatch:
+    def __init__(self, field_info: FieldInfo, base_cols: list[str]) -> None:
+        self.field_info = field_info
+        self.base_cols = base_cols
+
+        self.model_members: list[type[BaseModel]] = [
+            member
+            for member in get_args(self.field_info.annotation)
+            if is_pydantic_model_static_type(member)
+        ]
+
+    def compute_model_expr(self) -> pl.Expr:
+        discriminator: str | Callable = self._get_discriminator()
+
+        match discriminator:
+            case str():
+                discriminator_mapping: dict[tuple[str, ...], type[BaseModel]] = {
+                    get_args(model.model_fields[discriminator].annotation): model
+                    for model in self.model_members
+                }
+
+                whens: list[pl.When] = [
+                    pl.when(pl.col(discriminator).is_in(list(k))).then(
+                        pl.struct(self.base_cols).struct.with_fields(
+                            *Exprs(model=v, base_cols=self.base_cols),
+                        )
+                    )
+                    for k, v in discriminator_mapping.items()
+                ]
+
+                when, *rest_whens = whens
+                expr: pl.Expr = reduce(
+                    lambda x, y: y.otherwise(x), rest_whens, when.otherwise(None)
+                )
+
+            case Callable():
+                tag_mapping: dict[str, type[BaseModel]] = self._get_tag_mapping()
+
+                discriminator_expression = pl.struct(self.base_cols).map_elements(
+                    function=discriminator, return_dtype=pl.String
+                )
+
+                whens: list[pl.When] = [
+                    pl.when(discriminator_expression == k).then(
+                        pl.struct(self.base_cols).struct.with_fields(
+                            *Exprs(model=v, base_cols=self.base_cols),
+                        )
+                    )
+                    for k, v in tag_mapping.items()
+                ]
+
+                when, *rest_whens = whens
+                expr: pl.Expr = reduce(
+                    lambda x, y: y.otherwise(x), rest_whens, when.otherwise(None)
+                )
+
+            case _:
+                assert False, "This should never happen."
+
+        return expr
+
+    def _get_discriminator(self) -> str | Callable:
+        for candidate in [self.field_info.discriminator, *self.field_info.metadata]:
+            match candidate:
+                case str():
+                    return candidate
+                case Discriminator(discriminator=discriminator):
+                    return discriminator
+
+        msg = (
+            "Multi-Model unions must be discriminated unions. "
+            f"Unable to extract discriminator for model union '{self.field_info.annotation}'."
+        )
+        raise ValueError(msg)
+
+    def _get_tag_mapping(self):
+        """Prototype; this needs proper abstraction."""
+
+        def _generate():
+            for type_form in get_args(self.field_info.annotation):
+                model, *rest = get_args(type_form)
+                tag = next(member for member in rest if isinstance(member, Tag))
+
+                yield (tag.tag, model)
+
+        return dict(_generate())
+
+
+class Exprs:
+    def __init__(
+        self, model: type[BaseModel], base_cols: list[str], group_context: bool = False
+    ) -> None:
+        self.model = model
+        self.base_cols = base_cols
+        self.group_context = group_context
+
+    def __iter__(self) -> Iterator[pl.Expr]:
+        for field_name, field_info in self.model.model_fields.items():
+            annotation = cast(TypeForm, field_info.annotation)
+
+            if is_pydantic_model_static_type(annotation):
+                expr: pl.Expr = self._struct_expr(model=annotation).alias(field_name)
+                yield (expr.first() if self.group_context else expr)
+
+            elif is_pydantic_model_union_static_type(annotation):
+                expr: pl.Expr = (
+                    ModelUnionDispatch(
+                        field_info=field_info,
+                        base_cols=self.base_cols,
+                    )
+                    .compute_model_expr()
+                    .alias(field_name)
+                )
+
+                yield (expr.first() if self.group_context else expr)
+
+            elif is_list_pydantic_model_static_type(annotation):
+                aggr_model, *_ = get_args(annotation)
+                partition_value: str = self._get_partition_value(model=self.model)
+
+                agg: Agg = self._get_agg(field_info)
+                expr: pl.Expr = agg.apply_to(
+                    self._struct_expr(aggr_model).alias(field_name),
+                )
+
+                yield (
+                    expr
+                    if self.group_context
+                    else expr.implode().over(partition_by=partition_value)
+                )
+
+            elif is_list_static_type(annotation):
+                partition_value: str = self._get_partition_value(model=self.model)
+
+                agg: Agg = self._get_agg(field_info)
+                expr: pl.Expr = agg.apply_to(pl.col(field_name))
+
+                yield (
+                    expr
+                    if self.group_context
+                    else expr.implode().over(partition_by=partition_value)
+                )
+
+    def _struct_expr(self, model: type[BaseModel]) -> pl.Expr:
+        return pl.struct(self.base_cols).struct.with_fields(
+            *Exprs(model=model, base_cols=self.base_cols)
+        )
+
+    @staticmethod
+    def _get_partition_value(model: type[BaseModel]):
+        try:
+            partition_value = model.model_config["group_by"]  # type: ignore
+        except KeyError:
+            raise Exception(
+                f"Model '{model.__name__}' with aggregation target "
+                "does not specify ConfigDict.group_by."
+            )
+        else:
+            return partition_value
+
+    @staticmethod
+    def _get_agg(field_info: FieldInfo) -> Agg:
+        agg: Agg | None = next(
+            (entry for entry in field_info.metadata if isinstance(entry, Agg)), None
+        )
+
+        return agg or Agg()
+
+
+class LazyFramePlanner:
+    def __init__(self, model: type[BaseModel], bindings: list[dict]) -> None:
+        self.model = model
+        self.bindings = bindings
+
+        self.lazy_frame = pl.LazyFrame(data=bindings)
+        self.base_cols: list[str] = self.lazy_frame.collect_schema().names()
+
+    def run(self) -> pl.LazyFrame:
+        group_by_value: str | None = self.model.model_config.get("group_by")
+
+        def exprs_factory(group_context: bool = False) -> Iterable[pl.Expr]:
+            return Exprs(
+                model=self.model, base_cols=self.base_cols, group_context=group_context
+            )
+
+        if group_by_value is None:
+            exprs: Iterable[pl.Expr] = exprs_factory()
+            return self.lazy_frame.with_columns(*exprs)
+
+        exprs: Iterable[pl.Expr] = exprs_factory(group_context=True)
+        return self.lazy_frame.group_by(group_by_value, maintain_order=True).agg(
+            *[
+                pl.col(col_name).first()
+                for col_name in self.base_cols
+                if not col_name == group_by_value
+            ],
+            *exprs,
+        )
