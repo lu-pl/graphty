@@ -6,40 +6,42 @@ from pydantic import BaseModel
 from typing_extensions import TypeForm
 
 
-def is_list_static_type(obj: TypeForm) -> TypeGuard[type[list]]:
-    """Check if object is a list type."""
-    return (obj is list) or (get_origin(obj) is list)
+def de_annotate(type_form: TypeForm) -> TypeForm:
+    """Unwrap potentially nested Annotated wrappers."""
+
+    if get_origin(type_form) is Annotated:
+        type_form, *_ = get_args(type_form)
+        return de_annotate(type_form)
+    return type_form
 
 
-def is_pydantic_model_static_type(obj: TypeForm) -> TypeGuard[type[BaseModel]]:
-    """Check if object is a Pydantic model type."""
-    if get_origin(obj) is Annotated:
-        obj, *_ = get_args(obj)
+def is_pydantic_model_static_type(type_form: TypeForm) -> TypeGuard[type[BaseModel]]:
+    """Check if type_form denotes a Pydantic model type."""
+    type_form = de_annotate(type_form)
 
     return (
-        isinstance(obj, type) and issubclass(obj, BaseModel) and (obj is not BaseModel)
+        isinstance(type_form, type)
+        and issubclass(type_form, BaseModel)
+        and (type_form is not BaseModel)
     )
 
 
-def is_list_pydantic_model_static_type(
-    obj: TypeForm,
-) -> TypeGuard[type[list[type[BaseModel]]]]:
-    """Check if an object is a list of Pydantic models type."""
-    return is_list_static_type(obj) and all(
-        is_pydantic_model_static_type(t) for t in get_args(obj)
-    )
+def is_parametrized_list_static_type(type_form: TypeForm) -> TypeGuard[type[list]]:
+    """Check if type_form denotes a parametrized list type."""
+    type_form = de_annotate(type_form)
+    return get_origin(type_form) is list
 
 
 def is_pydantic_model_union_static_type(
-    obj: TypeForm,
+    type_form: TypeForm,
 ) -> TypeGuard[types.UnionType]:
-    """Check if object is a union type of a Pydantic model."""
-    if get_origin(obj) is Annotated:
-        obj, *_ = get_args(obj)
+    """Check if type_form denotes a union type of a Pydantic model."""
 
-    is_union_type: bool = get_origin(obj) in (types.UnionType, typing.Union)
+    type_form = de_annotate(type_form)
+
+    is_union_type: bool = get_origin(type_form) in (types.UnionType, typing.Union)
     has_any_model: bool = any(
-        is_pydantic_model_static_type(obj) for obj in get_args(obj)
+        is_pydantic_model_static_type(obj) for obj in get_args(type_form)
     )
 
     return is_union_type and has_any_model

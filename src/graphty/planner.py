@@ -1,7 +1,7 @@
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from functools import reduce
-from typing import Annotated, Literal, cast, get_args
+from typing import cast, get_args
 
 import polars as pl
 from pydantic import BaseModel, Discriminator, Tag
@@ -10,8 +10,7 @@ from pydantic.fields import FieldInfo
 from typing_extensions import TypeForm
 
 from graphty.utils.type_utils import (
-    is_list_pydantic_model_static_type,
-    is_list_static_type,
+    is_parametrized_list_static_type,
     is_pydantic_model_static_type,
     is_pydantic_model_union_static_type,
 )
@@ -153,37 +152,34 @@ class Exprs:
 
             elif is_pydantic_model_union_static_type(annotation):
                 expr: pl.Expr = (
-                    ModelUnionDispatch(
-                        field_info=field_info,
-                        base_cols=self.base_cols,
-                    )
+                    ModelUnionDispatch(field_info=field_info, base_cols=self.base_cols)
                     .compute_model_expr()
                     .alias(field_name)
                 )
-
                 yield (expr.first() if self.group_context else expr)
 
-            elif is_list_pydantic_model_static_type(annotation):
-                aggr_model, *_ = get_args(annotation)
+            elif is_parametrized_list_static_type(annotation):
+                (item_annotation,) = get_args(annotation)
+
                 partition_value: str = self._get_partition_value(model=self.model)
-
                 agg: Agg = self._get_agg(field_info)
-                expr: pl.Expr = agg.apply_to(
-                    self._struct_expr(aggr_model).alias(field_name),
-                )
 
-                yield (
-                    expr
-                    if self.group_context
-                    else expr.implode().over(partition_by=partition_value)
-                )
+                if is_pydantic_model_static_type(item_annotation):
+                    inner: pl.Expr = self._struct_expr(model=item_annotation).alias(
+                        field_name
+                    )
+                elif is_pydantic_model_union_static_type(item_annotation):
+                    inner: pl.Expr = (
+                        ModelUnionDispatch(
+                            field_info=field_info, base_cols=self.base_cols
+                        )
+                        .compute_model_expr()
+                        .alias(field_name)
+                    )
+                else:
+                    inner: pl.Expr = pl.col(field_name)
 
-            elif is_list_static_type(annotation):
-                partition_value: str = self._get_partition_value(model=self.model)
-
-                agg: Agg = self._get_agg(field_info)
-                expr: pl.Expr = agg.apply_to(pl.col(field_name))
-
+                expr: pl.Expr = agg.apply_to(inner)
                 yield (
                     expr
                     if self.group_context
@@ -196,7 +192,7 @@ class Exprs:
         )
 
     @staticmethod
-    def _get_partition_value(model: type[BaseModel]):
+    def _get_partition_value(model: type[BaseModel]) -> str:
         try:
             partition_value = model.model_config["group_by"]  # type: ignore
         except KeyError:
@@ -212,16 +208,19 @@ class Exprs:
         agg: Agg | None = next(
             (entry for entry in field_info.metadata if isinstance(entry, Agg)), None
         )
-
         return agg or Agg()
 
 
 class LazyFramePlanner:
-    def __init__(self, model: type[BaseModel], bindings: list[dict]) -> None:
+    def __init__(
+        self, model: type[BaseModel], data: pl._typing.FrameInitTypes | pl.LazyFrame
+    ) -> None:
         self.model = model
-        self.bindings = bindings
+        self.data = data
 
-        self.lazy_frame = pl.LazyFrame(data=bindings)
+        self.lazy_frame: pl.LazyFrame = (
+            data if isinstance(data, pl.LazyFrame) else pl.LazyFrame(data=data)
+        )
         self.base_cols: list[str] = self.lazy_frame.collect_schema().names()
 
     def run(self) -> pl.LazyFrame:
