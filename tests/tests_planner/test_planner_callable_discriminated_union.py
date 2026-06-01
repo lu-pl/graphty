@@ -49,11 +49,11 @@ EXPECTED = [
 
 
 def test_planner_callable_discriminated_union():
-    bindings = [
+    data = [
         {"time_to_cook": 1, "fruit": "apple"},
         {"time_to_cook": 2, "filling": "pumpkin"},
     ]
-    planner = LazyFramePlanner(model=ThanksgivingDinner, bindings=bindings)
+    planner = LazyFramePlanner(model=ThanksgivingDinner, data=data)
     frame = planner.run()
 
     assert frame.collect().to_dicts()

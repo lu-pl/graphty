@@ -40,10 +40,10 @@ EXPECTED = [
 ]
 
 
-def test_planner_ungrouped_nested():
-    bindings = [{"x": 1, "y": 2}, {"x": 1, "y": 3}, {"x": 3, "y": 4}]
+def test_planner_grouped_nested():
+    data = [{"x": 1, "y": 2}, {"x": 1, "y": 3}, {"x": 3, "y": 4}]
 
-    planner = LazyFramePlanner(model=Model, bindings=bindings)
+    planner = LazyFramePlanner(model=Model, data=data)
     frame = planner.run()
 
     assert frame.collect().to_dicts() == EXPECTED

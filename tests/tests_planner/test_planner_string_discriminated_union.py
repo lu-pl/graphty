@@ -2,7 +2,7 @@ from typing import Annotated, Literal, Union
 
 import pytest
 from graphty.planner import LazyFramePlanner
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field
 
 
 class Cat(BaseModel):
@@ -44,17 +44,17 @@ EXPECTED = [
     {"pet_type": "reptile", "n": 4, "pet": {"pet_type": "reptile", "n": 4}},
 ]
 
-bindings = [
-    {"pet_type": "cat", "n": 1},
-    {"pet_type": "dog", "n": 2},
-    {"pet_type": "lizard", "n": 3},
-    {"pet_type": "reptile", "n": 4},
-]
-
 
 @pytest.mark.parametrize("model", [Model1, Model2, Model3, Model4])
 def test_planner_string_discriminated(model):
-    planner = LazyFramePlanner(model=model, bindings=bindings)
+    data = [
+        {"pet_type": "cat", "n": 1},
+        {"pet_type": "dog", "n": 2},
+        {"pet_type": "lizard", "n": 3},
+        {"pet_type": "reptile", "n": 4},
+    ]
+
+    planner = LazyFramePlanner(model=model, data=data)
     frame = planner.run()
 
     assert frame.collect().to_dicts() == EXPECTED
