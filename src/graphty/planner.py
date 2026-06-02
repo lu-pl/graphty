@@ -1,15 +1,16 @@
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from functools import reduce
-from typing import cast, get_args
+from typing import Annotated, cast, get_args, get_origin
 
 import polars as pl
 from pydantic import BaseModel, Discriminator, Tag
 from pydantic import ConfigDict as PydanticConfigDict
 from pydantic.fields import FieldInfo
-from typing_extensions import TypeForm
+from typing_extensions import TypeForm, get_annotations
 
 from graphty.utils.type_utils import (
+    de_annotate,
     is_parametrized_list_static_type,
     is_pydantic_model_static_type,
     is_pydantic_model_union_static_type,
@@ -47,28 +48,43 @@ class Agg:
 
 
 class ModelUnionDispatch:
-    def __init__(self, field_info: FieldInfo, base_cols: list[str]) -> None:
-        self.field_info = field_info
+    def __init__(
+        self,
+        type_form: TypeForm,
+        base_cols: list[str],
+        discriminator: str | Callable | None,
+    ) -> None:
+        self.type_form = type_form
         self.base_cols = base_cols
+        self.discriminator = discriminator
 
         self.model_members: list[type[BaseModel]] = [
             member
-            for member in get_args(self.field_info.annotation)
+            for member in get_args(de_annotate(self.type_form))
             if is_pydantic_model_static_type(member)
         ]
 
     def compute_model_expr(self) -> pl.Expr:
-        discriminator: str | Callable = self._get_discriminator()
+        first, *rest = self.model_members
 
-        match discriminator:
+        if not rest:
+            return pl.struct(self.base_cols).struct.with_fields(
+                *Exprs(model=first, base_cols=self.base_cols),
+            )
+
+        discriminator_value: str | Callable = (
+            self._resolve_discriminator().discriminator
+        )
+
+        match discriminator_value:
             case str():
                 discriminator_mapping: dict[tuple[str, ...], type[BaseModel]] = {
-                    get_args(model.model_fields[discriminator].annotation): model
+                    get_args(model.model_fields[discriminator_value].annotation): model
                     for model in self.model_members
                 }
 
                 whens: list[pl.When] = [
-                    pl.when(pl.col(discriminator).is_in(list(k))).then(
+                    pl.when(pl.col(discriminator_value).is_in(list(k))).then(
                         pl.struct(self.base_cols).struct.with_fields(
                             *Exprs(model=v, base_cols=self.base_cols),
                         )
@@ -85,7 +101,7 @@ class ModelUnionDispatch:
                 tag_mapping: dict[str, type[BaseModel]] = self._get_tag_mapping()
 
                 discriminator_expression = pl.struct(self.base_cols).map_elements(
-                    function=discriminator, return_dtype=pl.String
+                    function=discriminator_value, return_dtype=pl.String
                 )
 
                 whens: list[pl.When] = [
@@ -101,23 +117,36 @@ class ModelUnionDispatch:
                 expr: pl.Expr = reduce(
                     lambda x, y: y.otherwise(x), rest_whens, when.otherwise(None)
                 )
-
             case _:
-                assert False, "This should never happen."
+                assert False, "Expected discriminator to be of type str | Callable."
 
         return expr
 
-    def _get_discriminator(self) -> str | Callable:
-        for candidate in [self.field_info.discriminator, *self.field_info.metadata]:
-            match candidate:
-                case str():
-                    return candidate
-                case Discriminator(discriminator=discriminator):
-                    return discriminator
+    def _resolve_discriminator(self) -> Discriminator:
+        if self.discriminator is not None:
+            return Discriminator(discriminator=self.discriminator)
+
+        args = (
+            get_args(self.type_form) if get_origin(self.type_form) is Annotated else []
+        )
+
+        for arg in args:
+            match arg:
+                case FieldInfo(discriminator=discriminator):
+                    assert discriminator is not None, (
+                        "Expected discriminator to be non-None."
+                    )
+                    return (
+                        discriminator
+                        if isinstance(discriminator, Discriminator)
+                        else Discriminator(discriminator=discriminator)
+                    )
+                case Discriminator():
+                    return arg
 
         msg = (
             "Multi-Model unions must be discriminated unions. "
-            f"Unable to extract discriminator for model union '{self.field_info.annotation}'."
+            f"Unable to extract discriminator for type form '{self.type_form}'."
         )
         raise ValueError(msg)
 
@@ -125,7 +154,7 @@ class ModelUnionDispatch:
         """Prototype; this needs proper abstraction."""
 
         def _generate():
-            for type_form in get_args(self.field_info.annotation):
+            for type_form in get_args(de_annotate(self.type_form)):
                 model, *rest = get_args(type_form)
                 tag = next(member for member in rest if isinstance(member, Tag))
 
@@ -152,7 +181,11 @@ class Exprs:
 
             elif is_pydantic_model_union_static_type(annotation):
                 expr: pl.Expr = (
-                    ModelUnionDispatch(field_info=field_info, base_cols=self.base_cols)
+                    ModelUnionDispatch(
+                        type_form=get_annotations(self.model)[field_name],
+                        base_cols=self.base_cols,
+                        discriminator=field_info.discriminator,
+                    )
                     .compute_model_expr()
                     .alias(field_name)
                 )
@@ -169,9 +202,11 @@ class Exprs:
                         field_name
                     )
                 elif is_pydantic_model_union_static_type(item_annotation):
-                    inner: pl.Expr = (
+                    inner = (
                         ModelUnionDispatch(
-                            field_info=field_info, base_cols=self.base_cols
+                            type_form=get_annotations(self.model)[field_name],
+                            base_cols=self.base_cols,
+                            discriminator=field_info.discriminator,
                         )
                         .compute_model_expr()
                         .alias(field_name)
