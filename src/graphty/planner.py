@@ -1,6 +1,8 @@
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from functools import reduce
+from itertools import chain
+from types import UnionType
 from typing import Annotated, cast, get_args, get_origin
 
 import polars as pl
@@ -63,15 +65,36 @@ class ModelUnionDispatch:
             for member in get_args(de_annotate(self.type_form))
             if is_pydantic_model_static_type(member)
         ]
+        self.model_union_members: list[UnionType] = [
+            member
+            for member in get_args(de_annotate(self.type_form))
+            if is_pydantic_model_union_static_type(member)
+        ]
 
     def compute_model_expr(self) -> pl.Expr:
         first, *rest = self.model_members
 
-        if not rest:
+        if not rest and not self.model_union_members:
             return pl.struct(self.base_cols).struct.with_fields(
                 *Exprs(model=first, base_cols=self.base_cols),
             )
 
+        whens = self._compute_whens()
+        when, *rest_whens = whens
+
+        return reduce(
+            lambda x, y: y.otherwise(x),
+            rest_whens,
+            when.otherwise(None),
+        )
+
+    def _compute_whens(self) -> list["pl.When"]:
+        return [
+            *self._compute_model_whens(),
+            *self._compute_model_union_whens(),
+        ]
+
+    def _compute_model_whens(self) -> list["pl.When"]:
         discriminator_value: str | Callable = (
             self._resolve_discriminator().discriminator
         )
@@ -83,7 +106,7 @@ class ModelUnionDispatch:
                     for model in self.model_members
                 }
 
-                whens: list[pl.When] = [
+                return [
                     pl.when(pl.col(discriminator_value).is_in(list(k))).then(
                         pl.struct(self.base_cols).struct.with_fields(
                             *Exprs(model=v, base_cols=self.base_cols),
@@ -92,19 +115,15 @@ class ModelUnionDispatch:
                     for k, v in discriminator_mapping.items()
                 ]
 
-                when, *rest_whens = whens
-                expr: pl.Expr = reduce(
-                    lambda x, y: y.otherwise(x), rest_whens, when.otherwise(None)
-                )
-
             case Callable():
                 tag_mapping: dict[str, type[BaseModel]] = self._get_tag_mapping()
 
                 discriminator_expression = pl.struct(self.base_cols).map_elements(
-                    function=discriminator_value, return_dtype=pl.String
+                    function=discriminator_value,
+                    return_dtype=pl.String,
                 )
 
-                whens: list[pl.When] = [
+                return [
                     pl.when(discriminator_expression == k).then(
                         pl.struct(self.base_cols).struct.with_fields(
                             *Exprs(model=v, base_cols=self.base_cols),
@@ -113,14 +132,20 @@ class ModelUnionDispatch:
                     for k, v in tag_mapping.items()
                 ]
 
-                when, *rest_whens = whens
-                expr: pl.Expr = reduce(
-                    lambda x, y: y.otherwise(x), rest_whens, when.otherwise(None)
-                )
             case _:
                 assert False, "Expected discriminator to be of type str | Callable."
 
-        return expr
+    def _compute_model_union_whens(self) -> list["pl.When"]:
+        return list(
+            chain.from_iterable(
+                ModelUnionDispatch(
+                    type_form=type_form,
+                    base_cols=self.base_cols,
+                    discriminator=None,
+                )._compute_whens()
+                for type_form in self.model_union_members
+            )
+        )
 
     def _resolve_discriminator(self) -> Discriminator:
         if self.discriminator is not None:
@@ -141,6 +166,7 @@ class ModelUnionDispatch:
                         if isinstance(discriminator, Discriminator)
                         else Discriminator(discriminator=discriminator)
                     )
+
                 case Discriminator():
                     return arg
 
@@ -158,7 +184,7 @@ class ModelUnionDispatch:
                 model, *rest = get_args(type_form)
                 tag = next(member for member in rest if isinstance(member, Tag))
 
-                yield (tag.tag, model)
+                yield tag.tag, model
 
         return dict(_generate())
 
