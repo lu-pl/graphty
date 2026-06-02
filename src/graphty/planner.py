@@ -72,12 +72,11 @@ class ModelUnionDispatch:
         ]
 
     def compute_model_expr(self) -> pl.Expr:
-        first, *rest = self.model_members
-
-        if not rest and not self.model_union_members:
-            return pl.struct(self.base_cols).struct.with_fields(
-                *Exprs(model=first, base_cols=self.base_cols),
-            )
+        match self.model_members, self.model_union_members:
+            case [model], []:
+                return pl.struct(self.base_cols).struct.with_fields(
+                    *Exprs(model=model, base_cols=self.base_cols),
+                )
 
         whens = self._compute_whens()
         when, *rest_whens = whens
