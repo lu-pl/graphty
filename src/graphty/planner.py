@@ -94,6 +94,9 @@ class ModelUnionDispatch:
         ]
 
     def _compute_model_whens(self) -> list["pl.When"]:
+        if not self.model_members:
+            return []
+
         discriminator: Discriminator = self._resolve_discriminator()
         discriminator_value: str | Callable = discriminator.discriminator
 
