@@ -140,7 +140,7 @@ class ModelUnionDispatch:
         return list(
             chain.from_iterable(
                 ModelUnionDispatch(
-                    type_form=type_form,
+                    type_form=cast(TypeForm, type_form),
                     base_cols=self.base_cols,
                     discriminator=None,
                 )._compute_whens()
