@@ -288,21 +288,25 @@ class LazyFramePlanner:
     def run(self) -> pl.LazyFrame:
         group_by_value: str | None = self.model.model_config.get("group_by")
 
-        def exprs_factory(group_context: bool = False) -> Iterable[pl.Expr]:
-            return Exprs(
-                model=self.model, base_cols=self.base_cols, group_context=group_context
-            )
-
         if group_by_value is None:
-            exprs: Iterable[pl.Expr] = exprs_factory()
+            exprs: Iterable[pl.Expr] = Exprs(model=self.model, base_cols=self.base_cols)
             return self.lazy_frame.with_columns(*exprs)
 
-        exprs: Iterable[pl.Expr] = exprs_factory(group_context=True)
+        base_cols = self._agg_base_cols(group_by_value)
+
         return self.lazy_frame.group_by(group_by_value, maintain_order=True).agg(
-            *[
-                pl.col(col_name).first()
-                for col_name in self.base_cols
-                if not col_name == group_by_value
-            ],
-            *exprs,
+            *[pl.col(col).first() for col in base_cols],
+            *Exprs(model=self.model, base_cols=base_cols, group_context=True),
         )
+
+    def _agg_base_cols(self, group_by_value: str) -> list[str]:
+        exclude = {
+            group_by_value,
+            *(
+                field_name
+                for field_name, field_info in self.model.model_fields.items()
+                if is_parametrized_list_static_type(field_info.annotation)
+            ),
+        }
+
+        return [col for col in self.base_cols if col not in exclude]
