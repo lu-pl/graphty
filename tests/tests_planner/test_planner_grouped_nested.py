@@ -44,6 +44,6 @@ def test_planner_grouped_nested():
     data = [{"x": 1, "y": 2}, {"x": 1, "y": 3}, {"x": 3, "y": 4}]
 
     planner = LazyFramePlanner(model=Model, data=data)
-    frame = planner.run()
+    frame = planner.run().collect()
 
-    assert frame.collect().to_dicts() == EXPECTED
+    assert frame.to_dicts() == EXPECTED
