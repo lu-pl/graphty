@@ -41,7 +41,8 @@ def is_pydantic_model_union_static_type(
 
     is_union_type: bool = get_origin(type_form) in (types.UnionType, typing.Union)
     has_any_model: bool = any(
-        is_pydantic_model_static_type(obj) for obj in get_args(type_form)
+        is_pydantic_model_static_type(obj) or is_pydantic_model_union_static_type(obj)
+        for obj in get_args(type_form)
     )
 
     return is_union_type and has_any_model
