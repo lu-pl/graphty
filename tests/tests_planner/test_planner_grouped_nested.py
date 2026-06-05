@@ -25,17 +25,17 @@ EXPECTED = [
     {
         "x": 1,
         "y": 2,
-        "model": {"y": [2, 3]},
+        "model": {"x": 1, "y": [2, 3]},
         "aggr": [
-            {"y": 2, "deeply_nested": {"y": [2, 3]}},
-            {"y": 3, "deeply_nested": {"y": [2, 3]}},
+            {"x": 1, "y": 2, "deeply_nested": {"x": 1, "y": [2, 3]}},
+            {"x": 1, "y": 3, "deeply_nested": {"x": 1, "y": [2, 3]}},
         ],
     },
     {
         "x": 3,
         "y": 4,
-        "model": {"y": [4]},
-        "aggr": [{"y": 4, "deeply_nested": {"y": [4]}}],
+        "model": {"x": 3, "y": [4]},
+        "aggr": [{"x": 3, "y": 4, "deeply_nested": {"x": 3, "y": [4]}}],
     },
 ]
 
