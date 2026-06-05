@@ -292,21 +292,31 @@ class LazyFramePlanner:
             exprs: Iterable[pl.Expr] = Exprs(model=self.model, base_cols=self.base_cols)
             return self.lazy_frame.with_columns(*exprs)
 
-        base_cols = self._agg_base_cols(group_by_value)
+        toplevel_base_cols: set[str] = self._collect_toplevel_base_cols(group_by_value)
 
         return self.lazy_frame.group_by(group_by_value, maintain_order=True).agg(
-            *[pl.col(col).first() for col in base_cols],
-            *Exprs(model=self.model, base_cols=base_cols, group_context=True),
+            *map(lambda col: pl.col(col).first(), toplevel_base_cols),
+            *Exprs(model=self.model, base_cols=self.base_cols, group_context=True),
         )
 
-    def _agg_base_cols(self, group_by_value: str) -> list[str]:
-        exclude = {
+    def _collect_toplevel_base_cols(self, group_by_value) -> set[str]:
+        def _is_nested_type(type_form: TypeForm) -> bool:
+            return any(
+                predicate(type_form)
+                for predicate in [
+                    is_pydantic_model_static_type,
+                    is_pydantic_model_union_static_type,
+                    is_parametrized_list_static_type,
+                ]
+            )
+
+        exclude: set[str] = {
             group_by_value,
-            *(
+            *[
                 field_name
                 for field_name, field_info in self.model.model_fields.items()
-                if is_parametrized_list_static_type(field_info.annotation)
-            ),
+                if not _is_nested_type(field_info.annotation)
+            ],
         }
 
-        return [col for col in self.base_cols if col not in exclude]
+        return set(self.base_cols).difference(exclude)
