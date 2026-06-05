@@ -1,6 +1,6 @@
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
-from functools import reduce
+from functools import cached_property, reduce
 from itertools import chain
 from types import UnionType
 from typing import Annotated, cast, get_args, get_origin
@@ -283,21 +283,26 @@ class LazyFramePlanner:
         self.lazy_frame: pl.LazyFrame = (
             data if isinstance(data, pl.LazyFrame) else pl.LazyFrame(data=data)
         )
-        self.base_cols: list[str] = self.lazy_frame.collect_schema().names()
 
     def run(self) -> pl.LazyFrame:
         group_by_value: str | None = self.model.model_config.get("group_by")
 
         if group_by_value is None:
-            exprs: Iterable[pl.Expr] = Exprs(model=self.model, base_cols=self.base_cols)
+            exprs: Iterable[pl.Expr] = Exprs(
+                model=self.model, base_cols=self._base_cols
+            )
             return self.lazy_frame.with_columns(*exprs)
 
         toplevel_base_cols: set[str] = self._collect_toplevel_base_cols(group_by_value)
 
         return self.lazy_frame.group_by(group_by_value, maintain_order=True).agg(
             *map(lambda col: pl.col(col).first(), toplevel_base_cols),
-            *Exprs(model=self.model, base_cols=self.base_cols, group_context=True),
+            *Exprs(model=self.model, base_cols=self._base_cols, group_context=True),
         )
+
+    @cached_property
+    def _base_cols(self) -> list[str]:
+        return self.lazy_frame.collect_schema().names()
 
     def _collect_toplevel_base_cols(self, group_by_value) -> set[str]:
         def _is_nested_type(type_form: TypeForm) -> bool:
@@ -319,4 +324,4 @@ class LazyFramePlanner:
             ],
         }
 
-        return set(self.base_cols).difference(exclude)
+        return set(self._base_cols).difference(exclude)
