@@ -209,7 +209,9 @@ class Exprs:
             elif is_pydantic_model_union_static_type(annotation):
                 expr: pl.Expr = (
                     ModelUnionDispatch(
-                        type_form=get_annotations(self.model)[field_name],
+                        type_form=get_annotations(self.model)[
+                            field_name
+                        ],  # pass full TypeForm for discriminator resolution
                         base_cols=self.base_cols,
                         discriminator=field_info.discriminator,
                     )
@@ -231,7 +233,7 @@ class Exprs:
                 elif is_pydantic_model_union_static_type(item_annotation):
                     inner = (
                         ModelUnionDispatch(
-                            type_form=get_annotations(self.model)[field_name],
+                            type_form=item_annotation,  # pyright: ignore
                             base_cols=self.base_cols,
                             discriminator=field_info.discriminator,
                         )
