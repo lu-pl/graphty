@@ -1,3 +1,6 @@
+from typing import Annotated
+
+import pytest
 from graphty.planner import ConfigDict, LazyFramePlanner
 from pydantic import BaseModel
 
@@ -13,12 +16,44 @@ class Nested(BaseModel):
     deeply_nested: DeeplyNested
 
 
-class Model(BaseModel):
+class Model1(BaseModel):
     model_config = ConfigDict(group_by="x")
 
     x: int
     model: DeeplyNested
     aggr: list[Nested]
+
+
+class Model2(BaseModel):
+    model_config = ConfigDict(group_by="x")
+
+    x: int
+    model: DeeplyNested
+    aggr: list[Nested | None]
+
+
+class Model3(BaseModel):
+    model_config = ConfigDict(group_by="x")
+
+    x: int
+    model: DeeplyNested
+    aggr: Annotated[list[Nested | None], ""]
+
+
+class Model4(BaseModel):
+    model_config = ConfigDict(group_by="x")
+
+    x: int
+    model: DeeplyNested
+    aggr: list[Annotated[Nested | None, ""]]
+
+
+class Model5(BaseModel):
+    model_config = ConfigDict(group_by="x")
+
+    x: int
+    model: DeeplyNested
+    aggr: Annotated[list[Annotated[Nested | None, ""]], ""]
 
 
 EXPECTED = [
@@ -40,14 +75,15 @@ EXPECTED = [
 ]
 
 
-def test_planner_grouped_nested():
+@pytest.mark.parametrize("model", [Model1, Model2, Model3, Model4, Model5])
+def test_planner_grouped_nested(model):
     data = [{"x": 1, "y": 2}, {"x": 1, "y": 3}, {"x": 3, "y": 4}]
 
-    planner = LazyFramePlanner(model=Model, data=data)
+    planner = LazyFramePlanner(model=model, data=data)
     frame = planner.run().collect()
 
     dicts = frame.to_dicts()
     assert dicts == EXPECTED
 
     for binding in dicts:
-        assert Model.model_validate(binding)
+        assert model.model_validate(binding)
