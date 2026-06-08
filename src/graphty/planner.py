@@ -295,8 +295,6 @@ class LazyFramePlanner:
 
         toplevel_base_cols: set[str] = self._collect_toplevel_base_cols(group_by_value)
 
-        print("DEBUG: ", toplevel_base_cols)
-
         return self.lazy_frame.group_by(group_by_value, maintain_order=True).agg(
             *map(lambda col: pl.col(col).first(), toplevel_base_cols),
             *Exprs(model=self.model, base_cols=self._base_cols, group_context=True),
@@ -325,7 +323,5 @@ class LazyFramePlanner:
                 if _is_nested_type(field_info.annotation)
             ],
         }
-
-        print("DEBUG / exclude: ", exclude)
 
         return set(self._base_cols).difference(exclude)
