@@ -16,7 +16,16 @@ from graphty.utils.type_utils import (
     is_parametrized_list_static_type,
     is_pydantic_model_static_type,
     is_pydantic_model_union_static_type,
+    is_structured_field_static_type,
 )
+
+
+def get_model_projection(model: type[BaseModel]) -> set[str]:
+    return {
+        field_name
+        for field_name, field_info in model.model_fields.items()
+        if not is_structured_field_static_type(field_info.annotation)
+    }
 
 
 class ConfigDict(PydanticConfigDict):
@@ -53,7 +62,7 @@ class ModelUnionDispatch:
     def __init__(
         self,
         type_form: TypeForm,
-        base_cols: list[str],
+        base_cols: set[str],
         discriminator: str | Callable | None,
     ) -> None:
         self.type_form = type_form
@@ -71,10 +80,14 @@ class ModelUnionDispatch:
             if is_pydantic_model_union_static_type(member)
         ]
 
+    ## note: there is a fundamental problem with model-based projection for aggregated union models
+    ## since the discriminated model is not known at planning time, the projection cannot be computed early
     def compute_model_expr(self) -> pl.Expr:
         match self.model_members, self.model_union_members:
             case [model], []:
-                return pl.struct(self.base_cols).struct.with_fields(
+                # this duplicates Exprs._struct_expr and should be abstracted
+                model_projection: set[str] = get_model_projection(model=model)
+                return pl.struct(model_projection).struct.with_fields(
                     *Exprs(model=model, base_cols=self.base_cols),
                 )
 
@@ -190,9 +203,9 @@ class ModelUnionDispatch:
         return dict(_generate())
 
 
-class Exprs:
+class Exprs(Iterable[pl.Expr]):
     def __init__(
-        self, model: type[BaseModel], base_cols: list[str], group_context: bool = False
+        self, model: type[BaseModel], base_cols: set[str], group_context: bool = False
     ) -> None:
         self.model = model
         self.base_cols = base_cols
@@ -251,9 +264,12 @@ class Exprs:
                 )
 
     def _struct_expr(self, model: type[BaseModel]) -> pl.Expr:
-        return pl.struct(self.base_cols).struct.with_fields(
-            *Exprs(model=model, base_cols=self.base_cols)
+        model_projection: set[str] = get_model_projection(model=model)
+        exprs: chain[pl.Expr] = chain(
+            [pl.col(member) for member in model_projection],
+            Exprs(model=model, base_cols=self.base_cols),
         )
+        return pl.struct(*exprs)
 
     @staticmethod
     def _get_partition_value(model: type[BaseModel]) -> str:
@@ -280,50 +296,24 @@ class LazyFramePlanner:
         self, model: type[BaseModel], data: pl._typing.FrameInitTypes | pl.LazyFrame
     ) -> None:
         self.model = model
-        self.data = data
-
         self.lazy_frame: pl.LazyFrame = (
             data if isinstance(data, pl.LazyFrame) else pl.LazyFrame(data=data)
         )
 
     def run(self) -> pl.LazyFrame:
-        group_by_value: str | None = self.model.model_config.get("group_by")
+        group_by: str | None = self.model.model_config.get("group_by")
+        model_projection: set[str] = get_model_projection(self.model)
 
-        if group_by_value is None:
-            exprs: Iterable[pl.Expr] = Exprs(
-                model=self.model, base_cols=self._base_cols
-            )
-            return self.lazy_frame.with_columns(*exprs)
+        if group_by is None:
+            return self.lazy_frame.with_columns(
+                *Exprs(model=self.model, base_cols=self._base_cols)
+            ).drop(set(self._base_cols).difference(model_projection))
 
-        toplevel_base_cols: set[str] = self._collect_toplevel_base_cols(group_by_value)
-
-        return self.lazy_frame.group_by(group_by_value, maintain_order=True).agg(
-            *map(lambda col: pl.col(col).first(), toplevel_base_cols),
+        return self.lazy_frame.group_by(group_by, maintain_order=True).agg(
+            *[pl.col(col).first() for col in model_projection.difference({group_by})],
             *Exprs(model=self.model, base_cols=self._base_cols, group_context=True),
         )
 
     @cached_property
-    def _base_cols(self) -> list[str]:
-        return self.lazy_frame.collect_schema().names()
-
-    def _collect_toplevel_base_cols(self, group_by_value) -> set[str]:
-        def _is_nested_type(type_form: TypeForm) -> bool:
-            return any(
-                predicate(type_form)
-                for predicate in [
-                    is_pydantic_model_static_type,
-                    is_pydantic_model_union_static_type,
-                    is_parametrized_list_static_type,
-                ]
-            )
-
-        exclude: set[str] = {
-            group_by_value,
-            *[
-                field_name
-                for field_name, field_info in self.model.model_fields.items()
-                if _is_nested_type(field_info.annotation)
-            ],
-        }
-
-        return set(self._base_cols).difference(exclude)
+    def _base_cols(self) -> set[str]:
+        return set(self.lazy_frame.collect_schema().names())
