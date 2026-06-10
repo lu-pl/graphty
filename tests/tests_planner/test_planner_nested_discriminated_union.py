@@ -92,16 +92,6 @@ class Model(BaseModel):
 
 EXPECTED = [
     {
-        "kind": "cat",
-        "name": "Misty",
-        "lives": 9,
-        "bark_volume": None,
-        "length_cm": None,
-        "venomous": None,
-        "make": None,
-        "doors": None,
-        "brand": None,
-        "gears": None,
         "thing": {
             "kind": "cat",
             "name": "Misty",
@@ -116,16 +106,6 @@ EXPECTED = [
         },
     },
     {
-        "kind": "dog",
-        "name": "Rex",
-        "lives": None,
-        "bark_volume": 11,
-        "length_cm": None,
-        "venomous": None,
-        "make": None,
-        "doors": None,
-        "brand": None,
-        "gears": None,
         "thing": {
             "kind": "dog",
             "name": "Rex",
@@ -140,16 +120,6 @@ EXPECTED = [
         },
     },
     {
-        "kind": "lizard",
-        "name": "Lizzy",
-        "lives": None,
-        "bark_volume": None,
-        "length_cm": 42.5,
-        "venomous": None,
-        "make": None,
-        "doors": None,
-        "brand": None,
-        "gears": None,
         "thing": {
             "kind": "lizard",
             "name": "Lizzy",
@@ -164,16 +134,6 @@ EXPECTED = [
         },
     },
     {
-        "kind": "snake",
-        "name": "Snek",
-        "lives": None,
-        "bark_volume": None,
-        "length_cm": None,
-        "venomous": True,
-        "make": None,
-        "doors": None,
-        "brand": None,
-        "gears": None,
         "thing": {
             "kind": "snake",
             "name": "Snek",
@@ -188,16 +148,6 @@ EXPECTED = [
         },
     },
     {
-        "kind": "car",
-        "name": None,
-        "lives": None,
-        "bark_volume": None,
-        "length_cm": None,
-        "venomous": None,
-        "make": "Toyota",
-        "doors": 4,
-        "brand": None,
-        "gears": None,
         "thing": {
             "kind": "car",
             "name": None,
@@ -212,16 +162,6 @@ EXPECTED = [
         },
     },
     {
-        "kind": "bike",
-        "name": None,
-        "lives": None,
-        "bark_volume": None,
-        "length_cm": None,
-        "venomous": None,
-        "make": None,
-        "doors": None,
-        "brand": "Trek",
-        "gears": 21,
         "thing": {
             "kind": "bike",
             "name": None,

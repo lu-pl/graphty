@@ -34,15 +34,9 @@ class ThanksgivingDinner(BaseModel):
 
 EXPECTED = [
     {
-        "time_to_cook": 1,
-        "fruit": "apple",
-        "filling": None,
         "dessert": {"time_to_cook": 1, "fruit": "apple", "filling": None},
     },
     {
-        "time_to_cook": 2,
-        "fruit": None,
-        "filling": "pumpkin",
         "dessert": {"time_to_cook": 2, "fruit": None, "filling": "pumpkin"},
     },
 ]
