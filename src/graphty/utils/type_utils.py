@@ -46,3 +46,19 @@ def is_pydantic_model_union_static_type(
     )
 
     return is_union_type and has_any_model
+
+
+def is_structured_field_static_type(type_form: TypeForm) -> bool:
+    """Check if type_form denotes a structured field type.
+
+    A structured field type is a type that triggers a recursion
+    and/or aggregation code path in the GraphTy planner.
+    """
+    return any(
+        predicate(type_form)
+        for predicate in [
+            is_pydantic_model_static_type,
+            is_pydantic_model_union_static_type,
+            is_parametrized_list_static_type,
+        ]
+    )
