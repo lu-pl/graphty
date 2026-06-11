@@ -38,10 +38,10 @@ class Model4(BaseModel):
 
 
 EXPECTED = [
-    {"n": 1, "pet": {"pet_type": "cat", "n": 1}},
-    {"n": 2, "pet": {"pet_type": "dog", "n": 2}},
-    {"n": 3, "pet": {"pet_type": "lizard", "n": 3}},
-    {"n": 4, "pet": {"pet_type": "reptile", "n": 4}},
+    {"n": 1, "pet": {"pet_type": "cat"}},
+    {"n": 2, "pet": {"pet_type": "dog"}},
+    {"n": 3, "pet": {"pet_type": "lizard"}},
+    {"n": 4, "pet": {"pet_type": "reptile"}},
 ]
 
 
