@@ -311,7 +311,7 @@ class LazyFramePlanner:
         if group_by is None:
             return self.lazy_frame.with_columns(
                 *Exprs(model=self.model, base_cols=self._base_cols)
-            ).drop(set(self._base_cols).difference(model_projection))
+            ).drop(self._base_cols.difference(model_projection))
 
         return self.lazy_frame.group_by(group_by, maintain_order=True).agg(
             *[pl.col(col).first() for col in model_projection.difference({group_by})],
