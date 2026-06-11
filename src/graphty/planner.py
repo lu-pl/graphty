@@ -80,12 +80,10 @@ class ModelUnionDispatch:
             if is_pydantic_model_union_static_type(member)
         ]
 
-    ## note: there is a fundamental problem with model-based projection for aggregated union models
-    ## since the discriminated model is not known at planning time, the projection cannot be computed early
     def compute_model_expr(self) -> pl.Expr:
         match self.model_members, self.model_union_members:
             case [model], []:
-                # this duplicates Exprs._struct_expr and should be abstracted
+                # TODO: this duplicates Exprs._struct_expr and should be abstracted
                 model_projection: set[str] = get_model_projection(model=model)
                 return pl.struct(model_projection).struct.with_fields(
                     *Exprs(model=model, base_cols=self.base_cols),
@@ -110,6 +108,11 @@ class ModelUnionDispatch:
         if not self.model_members:
             return []
 
+        union_projection: set[str] = reduce(
+            set.union,
+            [get_model_projection(member) for member in self.model_members],
+        )
+
         discriminator: Discriminator = self._resolve_discriminator()
         discriminator_value: str | Callable = discriminator.discriminator
 
@@ -122,7 +125,7 @@ class ModelUnionDispatch:
 
                 return [
                     pl.when(pl.col(discriminator_value).is_in(list(k))).then(
-                        pl.struct(self.base_cols).struct.with_fields(
+                        pl.struct(union_projection).struct.with_fields(
                             *Exprs(model=v, base_cols=self.base_cols),
                         )
                     )
@@ -132,14 +135,14 @@ class ModelUnionDispatch:
             case Callable():
                 tag_mapping: dict[str, type[BaseModel]] = self._get_tag_mapping()
 
-                discriminator_expression = pl.struct(self.base_cols).map_elements(
+                discriminator_expression = pl.struct(union_projection).map_elements(
                     function=discriminator_value,
                     return_dtype=pl.String,
                 )
 
                 return [
                     pl.when(discriminator_expression == k).then(
-                        pl.struct(self.base_cols).struct.with_fields(
+                        pl.struct(union_projection).struct.with_fields(
                             *Exprs(model=v, base_cols=self.base_cols),
                         )
                     )
@@ -190,6 +193,7 @@ class ModelUnionDispatch:
         )
         raise ValueError(msg)
 
+    # TODO: this needs to be more defensive and raise a clear exception in case Tags cannot be retrieved
     def _get_tag_mapping(self):
         """Prototype; this needs proper abstraction."""
 
