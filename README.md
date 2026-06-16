@@ -1,3 +1,5 @@
+<img src="graphty.svg" width="50%" height="50%" />
+
 # Graph\<T\>
 
 Typed object graph materializer over relational binding sets.
