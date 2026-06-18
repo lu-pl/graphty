@@ -60,7 +60,7 @@ class AliasMap(UserDict):
                         raise ValueError(msg)
 
                     yield (k, alias)
-                case _:
+                case _: # pragma: no cover; unreachable
                     assert False, "This should never happen."
 
     def _get_alias_resolver(self) -> Callable[[str, FieldInfo], list[str]]:
