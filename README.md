@@ -1,6 +1,6 @@
 <img src="graphty.svg" width="50%" height="50%" />
 
-# Graph\<T\>
+# 
 
 Typed object graph materializer over relational binding sets.
 
@@ -12,4 +12,4 @@ Typed object graph materializer over relational binding sets.
 
 ## Installation
 
-`graphty` is a [PEP 621](https://peps.python.org/pep-0621/)-compliant package and available on PyPI.
+[Installation]
