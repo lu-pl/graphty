@@ -88,13 +88,13 @@ class AliasMap(UserDict):
         )
 
         match validate_by_name, validate_by_alias:
-            case True, False:  # TODO: trigger in tests
+            case True, False: 
                 return lambda field_name, _: [field_name]
             case False, True:
                 return lambda _, field_info: self._compute_alias_candidates(
                     field_info=field_info
                 )
-            case True, True:  # TODO: trigger in tests
+            case True, True:
                 return lambda field_name, field_info: [
                     field_name,
                     *self._compute_alias_candidates(field_info=field_info),
