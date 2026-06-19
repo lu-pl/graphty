@@ -1,5 +1,6 @@
 from collections import UserDict
 from collections.abc import Callable, Iterator
+from types import resolve_bases
 
 from pydantic import AliasChoices, BaseModel
 from pydantic.fields import FieldInfo
@@ -87,13 +88,13 @@ class AliasMap(UserDict):
         )
 
         match validate_by_name, validate_by_alias:
-            case True, False:
+            case True, False:  # TODO: trigger in tests
                 return lambda field_name, _: [field_name]
             case False, True:
                 return lambda _, field_info: self._compute_alias_candidates(
                     field_info=field_info
                 )
-            case True, True:
+            case True, True:  # TODO: trigger in tests
                 return lambda field_name, field_info: [
                     field_name,
                     *self._compute_alias_candidates(field_info=field_info),
@@ -108,29 +109,10 @@ class AliasMap(UserDict):
                 assert False, "This should never happen."
 
     def _compute_alias_candidates(self, field_info: FieldInfo) -> list[str]:
-        """Compute alias candidates given a FieldInfo object.
-
-        The function resolves alias values taking into account
-        alias, validation_alias and alias_priority.
-        """
-        alias, validation_alias = (
-            field_info.alias,
-            field_info.validation_alias,
-        )
-
-        match alias, validation_alias:
-            case None, None:
-                return []
-            case alias, None:
-                assert isinstance(alias, str), "Expected alias to be of type str."
-                return self._resolve_alias(alias)
-            case _, validation_alias:
-                return self._resolve_alias(validation_alias)
-            case _:  # pragma: no cover
-                raise ValueError(
-                    f"Unable to resolve aliases for '{field_info}' object."
-                )
-
+        if (validation_alias := field_info.validation_alias):
+            return self._resolve_alias(validation_alias)
+        return []
+        
     @staticmethod
     def _resolve_alias(alias: str | AliasChoices) -> list[str]:
         """Helper for resolving alias/validation_alias values in FieldInfo objects.
