@@ -1,4 +1,4 @@
-<img src="graphty.svg" width="50%" height="50%" />
+<img src="https://raw.githubusercontent.com/lu-pl/graphty/refs/heads/main/graphty.svg" width="50%" height="50%" />
 
 # 
 ![tests](https://github.com/lu-pl/graphty/actions/workflows/tests.yaml/badge.svg)
