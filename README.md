@@ -16,5 +16,5 @@ Typed object graph materializer over relational binding sets.
 [Intro]
 
 ## Installation
+`graphty` is a [PEP 621](https://peps.python.org/pep-0621/)-compliant package and available on PyPI.
 
-[Installation]
