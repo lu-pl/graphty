@@ -91,6 +91,10 @@ class Model7(BaseModel):
     my_field: str = Field(validation_alias="my_alias")
 
 
+class Model8(BaseModel):
+    x: int = Field(alias=AliasChoices("a"))
+
+
 params: list[TestParameter] = [
     TestParameter(
         description="""Full test case model with
@@ -151,5 +155,13 @@ params: list[TestParameter] = [
         description="Test case for validate_by_alias/validate_by_name combinations.",
         kwargs={"model": Model7, "projection": {"my_alias"}},
         expected={"my_field": "my_alias"},
+    ),
+    TestParameter(
+        description="""Test case for single entry AliasChoice.
+        A single entry AliasChoice should behave like a regular alias parameter
+        and therefore is decidable regardless of the projection.
+        """,
+        kwargs={"model": Model8, "projection": set()},
+        expected={"x": "a"},
     ),
 ]
