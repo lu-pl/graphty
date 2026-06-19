@@ -65,30 +65,30 @@ class Model3(BaseModel):
     )
     y: int = Field(alias="a", validation_alias="b", alias_priority=2)
     z: int = Field(alias="a", validation_alias="b")
-    
-    
+
+
 class Model4(BaseModel):
-  model_config = ConfigDict(validate_by_alias=True, validate_by_name=False)
-  
-  my_field: str = Field(validation_alias='my_alias')
+    model_config = ConfigDict(validate_by_alias=True, validate_by_name=False)
+
+    my_field: str = Field(validation_alias="my_alias")
 
 
 class Model5(BaseModel):
-  model_config = ConfigDict(validate_by_alias=False, validate_by_name=True)
-  
-  my_field: str = Field(validation_alias='my_alias')
+    model_config = ConfigDict(validate_by_alias=False, validate_by_name=True)
+
+    my_field: str = Field(validation_alias="my_alias")
 
 
 class Model6(BaseModel):
-  model_config = ConfigDict(validate_by_alias=True, validate_by_name=True)
-  
-  my_field: str = Field(validation_alias='my_alias')
+    model_config = ConfigDict(validate_by_alias=True, validate_by_name=True)
+
+    my_field: str = Field(validation_alias="my_alias")
+
 
 class Model7(BaseModel):
-  model_config = ConfigDict(validate_by_alias=True, validate_by_name=True)
-  
-  my_field: str = Field(validation_alias='my_alias')
+    model_config = ConfigDict(validate_by_alias=True, validate_by_name=True)
 
+    my_field: str = Field(validation_alias="my_alias")
 
 
 params: list[TestParameter] = [
@@ -132,8 +132,24 @@ params: list[TestParameter] = [
         kwargs={"model": Model3, "projection": set()},
         expected={"x": "b", "y": "b", "z": "b"},
     ),
-    TestParameter(description="Test case for validate_by_alias/validate_by_name combinations.", kwargs={"model": Model4, "projection": set()}, expected={'my_field': 'my_alias'}),
-    TestParameter(description="Test case for validate_by_alias/validate_by_name combinations.", kwargs={"model": Model5, "projection": set()}, expected={'my_field': 'my_field'}),
-    TestParameter(description="Test case for validate_by_alias/validate_by_name combinations.", kwargs={"model": Model6, "projection": {"my_field"}}, expected={'my_field': 'my_field'}),
-    TestParameter(description="Test case for validate_by_alias/validate_by_name combinations.", kwargs={"model": Model7, "projection": {"my_alias"}}, expected={'my_field': 'my_alias'}),
+    TestParameter(
+        description="Test case for validate_by_alias/validate_by_name combinations.",
+        kwargs={"model": Model4, "projection": set()},
+        expected={"my_field": "my_alias"},
+    ),
+    TestParameter(
+        description="Test case for validate_by_alias/validate_by_name combinations.",
+        kwargs={"model": Model5, "projection": set()},
+        expected={"my_field": "my_field"},
+    ),
+    TestParameter(
+        description="Test case for validate_by_alias/validate_by_name combinations.",
+        kwargs={"model": Model6, "projection": {"my_field"}},
+        expected={"my_field": "my_field"},
+    ),
+    TestParameter(
+        description="Test case for validate_by_alias/validate_by_name combinations.",
+        kwargs={"model": Model7, "projection": {"my_alias"}},
+        expected={"my_field": "my_alias"},
+    ),
 ]

@@ -1,6 +1,5 @@
 from collections import UserDict
 from collections.abc import Callable, Iterator
-from types import resolve_bases
 
 from pydantic import AliasChoices, BaseModel
 from pydantic.fields import FieldInfo
@@ -88,7 +87,7 @@ class AliasMap(UserDict):
         )
 
         match validate_by_name, validate_by_alias:
-            case True, False: 
+            case True, False:
                 return lambda field_name, _: [field_name]
             case False, True:
                 return lambda _, field_info: self._compute_alias_candidates(
@@ -109,10 +108,10 @@ class AliasMap(UserDict):
                 assert False, "This should never happen."
 
     def _compute_alias_candidates(self, field_info: FieldInfo) -> list[str]:
-        if (validation_alias := field_info.validation_alias):
+        if validation_alias := field_info.validation_alias:
             return self._resolve_alias(validation_alias)
         return []
-        
+
     @staticmethod
     def _resolve_alias(alias: str | AliasChoices) -> list[str]:
         """Helper for resolving alias/validation_alias values in FieldInfo objects.
