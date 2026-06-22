@@ -13,3 +13,7 @@ wheels/
 .venv
 
 .coverage
+
+$ environment
+.envrc
+.direnv
