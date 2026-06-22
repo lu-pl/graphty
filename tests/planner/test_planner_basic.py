@@ -3,7 +3,8 @@
 from typing import NamedTuple
 
 import pytest
-from graphty.planner import ConfigDict, LazyFramePlanner
+from graphty import ConfigDict
+from graphty.planner import LazyFramePlanner
 from pydantic import BaseModel
 
 

@@ -1,6 +1,7 @@
 """Tests for the Author/Work reference case."""
 
-from graphty.planner import ConfigDict, LazyFramePlanner
+from graphty import ConfigDict
+from graphty.planner import LazyFramePlanner
 from pydantic import BaseModel
 
 
