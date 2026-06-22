@@ -1,7 +1,8 @@
 from typing import Annotated
 
 import pytest
-from graphty.planner import ConfigDict, LazyFramePlanner
+from graphty import ConfigDict
+from graphty.planner import LazyFramePlanner
 from pydantic import BaseModel
 
 

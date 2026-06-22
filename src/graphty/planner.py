@@ -1,5 +1,4 @@
 from collections.abc import Callable, Iterable, Iterator
-from dataclasses import dataclass
 from functools import cached_property, reduce
 from itertools import chain
 from types import UnionType
@@ -7,7 +6,6 @@ from typing import Annotated, cast, get_args, get_origin
 
 import polars as pl
 from pydantic import BaseModel, Discriminator, Tag
-from pydantic import ConfigDict as PydanticConfigDict
 from pydantic.fields import FieldInfo
 from typing_extensions import TypeForm, get_annotations
 
@@ -18,6 +16,7 @@ from graphty.utils.type_utils import (
     is_pydantic_model_union_static_type,
     is_structured_field_static_type,
 )
+from graphty.utils.types import Agg
 
 
 def get_model_projection(model: type[BaseModel]) -> set[str]:
@@ -26,36 +25,6 @@ def get_model_projection(model: type[BaseModel]) -> set[str]:
         for field_name, field_info in model.model_fields.items()
         if not is_structured_field_static_type(field_info.annotation)
     }
-
-
-class ConfigDict(PydanticConfigDict):
-    group_by: str
-
-
-@dataclass
-class Agg:
-    """Configuration class for aggregation fields.
-
-    The class allows to configure aggregation behavior for
-    model fields with aggretation targets:
-
-    E.g. `field: typing.Annotated[list[int], Agg(unique=False)]`
-    will aggregate non-unique values of a given partition into `field`.
-
-    Note: This is a draft and likely subject of breaking API changes.
-    """
-
-    unique: bool = True
-    drop_nulls: bool = True
-
-    def __iter__(self) -> Iterator[Callable[[pl.Expr], pl.Expr]]:
-        if self.unique:
-            yield lambda expr: expr.unique()
-        if self.drop_nulls:
-            yield lambda expr: expr.drop_nulls()
-
-    def apply_to(self, expr: pl.Expr) -> pl.Expr:
-        return reduce(lambda x, y: y(x), self, expr)
 
 
 class ModelUnionDispatch:
