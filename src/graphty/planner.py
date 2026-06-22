@@ -313,9 +313,16 @@ class LazyFramePlanner:
                 *Exprs(model=self.model, base_cols=self._base_cols)
             ).drop(self._base_cols.difference(model_projection))
 
-        return self.lazy_frame.group_by(group_by, maintain_order=True).agg(
-            *[pl.col(col).first() for col in model_projection.difference({group_by})],
-            *Exprs(model=self.model, base_cols=self._base_cols, group_context=True),
+        return (
+            self.lazy_frame.group_by(group_by, maintain_order=True)
+            .agg(
+                *[
+                    pl.col(col).first()
+                    for col in model_projection.difference({group_by})
+                ],
+                *Exprs(model=self.model, base_cols=self._base_cols, group_context=True),
+            )
+            .drop(group_by if group_by not in model_projection else [])
         )
 
     @cached_property
