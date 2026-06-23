@@ -9,6 +9,8 @@ from pydantic import BaseModel, Discriminator, Tag
 from pydantic.fields import FieldInfo
 from typing_extensions import TypeForm, get_annotations
 
+from graphty.utils import alias_map
+from graphty.utils.alias_map import AliasMap
 from graphty.utils.type_utils import (
     de_annotate,
     is_parametrized_list_static_type,
@@ -19,9 +21,10 @@ from graphty.utils.type_utils import (
 from graphty.utils.types import Agg
 
 
-def get_model_projection(model: type[BaseModel]) -> set[str]:
+def get_model_projection(model: type[BaseModel], base_cols: set[str]) -> set[str]:
+    alias_map = AliasMap(model=model, projection=base_cols)
     return {
-        field_name
+        alias_map[field_name]
         for field_name, field_info in model.model_fields.items()
         if not is_structured_field_static_type(field_info.annotation)
     }
@@ -53,7 +56,9 @@ class ModelUnionDispatch:
         match self.model_members, self.model_union_members:
             case [model], []:
                 # TODO: this duplicates Exprs._struct_expr and should be abstracted
-                model_projection: set[str] = get_model_projection(model=model)
+                model_projection: set[str] = get_model_projection(
+                    model=model, base_cols=self.base_cols
+                )
                 return pl.struct(model_projection).struct.with_fields(
                     *Exprs(model=model, base_cols=self.base_cols),
                 )
@@ -79,7 +84,10 @@ class ModelUnionDispatch:
 
         union_projection: set[str] = reduce(
             set.union,
-            [get_model_projection(member) for member in self.model_members],
+            [
+                get_model_projection(model=member, base_cols=self.base_cols)
+                for member in self.model_members
+            ],
         )
 
         discriminator: Discriminator = self._resolve_discriminator()
@@ -184,6 +192,11 @@ class Exprs(Iterable[pl.Expr]):
         self.base_cols = base_cols
         self.group_context = group_context
 
+        self.model_projection: set[str] = get_model_projection(
+            model=model, base_cols=self.base_cols
+        )
+        self.alias_map = AliasMap(model=model, projection=self.model_projection)
+
     def __iter__(self) -> Iterator[pl.Expr]:
         for field_name, field_info in self.model.model_fields.items():
             annotation = cast(TypeForm, field_info.annotation)
@@ -227,7 +240,7 @@ class Exprs(Iterable[pl.Expr]):
                         .alias(field_name)
                     )
                 else:
-                    inner: pl.Expr = pl.col(field_name)
+                    inner: pl.Expr = pl.col(self.alias_map[field_name])
 
                 expr: pl.Expr = agg.apply_to(inner)
                 yield (
@@ -237,9 +250,8 @@ class Exprs(Iterable[pl.Expr]):
                 )
 
     def _struct_expr(self, model: type[BaseModel]) -> pl.Expr:
-        model_projection: set[str] = get_model_projection(model=model)
         exprs: chain[pl.Expr] = chain(
-            [pl.col(member) for member in model_projection],
+            [pl.col(member) for member in self.model_projection],
             Exprs(model=model, base_cols=self.base_cols),
         )
         return pl.struct(*exprs)
@@ -274,8 +286,12 @@ class LazyFramePlanner:
         )
 
     def run(self) -> pl.LazyFrame:
-        group_by: str | None = self.model.model_config.get("group_by")
-        model_projection: set[str] = get_model_projection(self.model)
+        alias_map = AliasMap(model=self.model, projection=self._base_cols)
+        group_by: str | None = alias_map[self.model.model_config.get("group_by")]
+
+        model_projection: set[str] = get_model_projection(
+            model=self.model, base_cols=self._base_cols
+        )
 
         if group_by is None:
             return self.lazy_frame.with_columns(
