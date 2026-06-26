@@ -1,5 +1,7 @@
 """Basic planner tests."""
 
+import json
+import logging
 from typing import NamedTuple
 
 import pytest
@@ -47,3 +49,24 @@ def test_materalizer_basic(param):
 
     assert bindings == param.expected.bindings
     assert model_dump == param.expected.model_dump
+
+
+@pytest.mark.parametrize("param", params)
+def test_materalizer_logging(param, caplog):
+    """Check the structured logging message from ModelMaterializer at level=logging.DEBUG.
+
+    The test uses the caplog fixture to introspect the log structured message
+    and parses the JSON part of the message to compare it to the current `binding` parameter.
+    """
+
+    with caplog.at_level(logging.DEBUG):
+        materializer = ModelMaterializer(**param.kwargs)
+
+        for _, binding_from_param in zip(
+            materializer.generate_models(),
+            param.expected.bindings,
+        ):
+            *_, json_part = caplog.text.rpartition(" >>> ")
+            binding_from_json = json.loads(json_part)["binding"]
+
+            assert binding_from_json == binding_from_param
