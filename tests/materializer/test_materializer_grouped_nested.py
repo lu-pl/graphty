@@ -1,9 +1,9 @@
 from typing import Annotated
 
 import pytest
-from graphty import ConfigDict
-from graphty.planner import LazyFramePlanner
+from graphty import ConfigDict, ModelMaterializer
 from pydantic import BaseModel
+from tests.materializer.param import Expected, Parameter
 
 
 class DeeplyNested(BaseModel):
@@ -57,7 +57,9 @@ class Model5(BaseModel):
     aggr: Annotated[list[Annotated[Nested | None, ""]], ""]
 
 
-EXPECTED = [
+data = [{"x": 1, "y": 2}, {"x": 1, "y": 3}, {"x": 3, "y": 4}]
+
+expected = [
     {
         "x": 1,
         "model": {"y": [2, 3]},
@@ -74,15 +76,32 @@ EXPECTED = [
 ]
 
 
-@pytest.mark.parametrize("model", [Model1, Model2, Model3, Model4, Model5])
-def test_planner_grouped_nested(model):
-    data = [{"x": 1, "y": 2}, {"x": 1, "y": 3}, {"x": 3, "y": 4}]
+params: list[Parameter] = [
+    Parameter(
+        kwargs={"model": Model1, "data": data}, expected=Expected(bindings=expected)
+    ),
+    Parameter(
+        kwargs={"model": Model2, "data": data}, expected=Expected(bindings=expected)
+    ),
+    Parameter(
+        kwargs={"model": Model3, "data": data}, expected=Expected(bindings=expected)
+    ),
+    Parameter(
+        kwargs={"model": Model4, "data": data}, expected=Expected(bindings=expected)
+    ),
+    Parameter(
+        kwargs={"model": Model5, "data": data}, expected=Expected(bindings=expected)
+    ),
+]
 
-    planner = LazyFramePlanner(model=model, data=data)
-    frame = planner.run().collect()
 
-    dicts = frame.to_dicts()
-    assert dicts == EXPECTED
+@pytest.mark.parametrize("param", params)
+def test_materalizer_grouped_nested(param):
 
-    for binding in dicts:
-        assert model.model_validate(binding)
+    materializer = ModelMaterializer(**param.kwargs)
+
+    bindings = list(materializer.generate_bindings())
+    model_dump = [model.model_dump() for model in materializer.generate_models()]
+
+    assert bindings == param.expected.bindings
+    assert model_dump == param.expected.model_dump
