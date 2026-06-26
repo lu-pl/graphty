@@ -1,7 +1,9 @@
 from typing import Annotated, Any, Literal
 
-from graphty.planner import LazyFramePlanner
+import pytest
+from graphty import ModelMaterializer
 from pydantic import BaseModel, Discriminator, Field, Tag
+from tests.materializer.param import Expected, Parameter
 
 
 class Cat(BaseModel):
@@ -90,7 +92,20 @@ class Model(BaseModel):
     thing: Thing
 
 
-EXPECTED = [
+data = {
+    "kind": ["cat", "dog", "lizard", "snake", "car", "bike"],
+    "name": ["Misty", "Rex", "Lizzy", "Snek", None, None],
+    "lives": [9, None, None, None, None, None],
+    "bark_volume": [None, 11, None, None, None, None],
+    "length_cm": [None, None, 42.5, None, None, None],
+    "venomous": [None, None, None, True, None, None],
+    "make": [None, None, None, None, "Toyota", None],
+    "doors": [None, None, None, None, 4, None],
+    "brand": [None, None, None, None, None, "Trek"],
+    "gears": [None, None, None, None, None, 21],
+}
+
+EXPECTED_BINDINGS: list[dict[str, object]] = [
     {
         "thing": {
             "kind": "cat",
@@ -177,26 +192,67 @@ EXPECTED = [
     },
 ]
 
+params = [
+    Parameter(
+        kwargs={"model": Model, "data": data},
+        expected=Expected(
+            bindings=EXPECTED_BINDINGS,
+            model_dump=[
+                {
+                    "thing": {
+                        "kind": "cat",
+                        "lives": 9,
+                        "name": "Misty",
+                    },
+                },
+                {
+                    "thing": {
+                        "bark_volume": 11,
+                        "kind": "dog",
+                        "name": "Rex",
+                    },
+                },
+                {
+                    "thing": {
+                        "kind": "lizard",
+                        "length_cm": 42.5,
+                        "name": "Lizzy",
+                    },
+                },
+                {
+                    "thing": {
+                        "kind": "snake",
+                        "name": "Snek",
+                        "venomous": True,
+                    },
+                },
+                {
+                    "thing": {
+                        "doors": 4,
+                        "kind": "car",
+                        "make": "Toyota",
+                    },
+                },
+                {
+                    "thing": {
+                        "brand": "Trek",
+                        "gears": 21,
+                        "kind": "bike",
+                    },
+                },
+            ],
+        ),
+    )
+]
 
-def test_planner_callable_discriminated_union():
-    data = {
-        "kind": ["cat", "dog", "lizard", "snake", "car", "bike"],
-        "name": ["Misty", "Rex", "Lizzy", "Snek", None, None],
-        "lives": [9, None, None, None, None, None],
-        "bark_volume": [None, 11, None, None, None, None],
-        "length_cm": [None, None, 42.5, None, None, None],
-        "venomous": [None, None, None, True, None, None],
-        "make": [None, None, None, None, "Toyota", None],
-        "doors": [None, None, None, None, 4, None],
-        "brand": [None, None, None, None, None, "Trek"],
-        "gears": [None, None, None, None, None, 21],
-    }
 
-    planner = LazyFramePlanner(model=Model, data=data)
-    frame = planner.run().collect()
+@pytest.mark.parametrize("param", params)
+def test_materalizer_nested_discriminated_union(param):
 
-    dicts = frame.to_dicts()
-    assert dicts == EXPECTED
+    materializer = ModelMaterializer(**param.kwargs)
 
-    for binding in dicts:
-        assert Model.model_validate(binding)
+    bindings = list(materializer.generate_bindings())
+    model_dump = [model.model_dump() for model in materializer.generate_models()]
+
+    assert bindings == param.expected.bindings
+    assert model_dump == param.expected.model_dump
