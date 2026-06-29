@@ -119,7 +119,7 @@ class ModelUnionDispatch:
                     for k, v in tag_mapping.items()
                 ]
 
-            case _:
+            case _:  # pragma: no cover
                 assert False, "Expected discriminator to be of type str | Callable."
 
     def _compute_model_union_whens(self) -> list["pl.When"]:
