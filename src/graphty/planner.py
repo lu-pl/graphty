@@ -9,6 +9,7 @@ from pydantic import BaseModel, Discriminator, Tag
 from pydantic.fields import FieldInfo
 from typing_extensions import TypeForm, get_annotations
 
+from graphty.utils.exceptions import MissingDiscriminatorError, MissingGroupByError
 from graphty.utils.type_utils import (
     de_annotate,
     is_parametrized_list_static_type,
@@ -156,11 +157,7 @@ class ModelUnionDispatch:
                 case Discriminator():
                     return arg
 
-        msg = (
-            "Multi-Model unions must be discriminated unions. "
-            f"Unable to extract discriminator for type form '{self.type_form}'."
-        )
-        raise ValueError(msg)
+        raise MissingDiscriminatorError(type_form=self.type_form)
 
     # TODO: this needs to be more defensive and raise a clear exception in case Tags cannot be retrieved
     def _get_tag_mapping(self):
@@ -249,10 +246,7 @@ class Exprs(Iterable[pl.Expr]):
         try:
             partition_value = model.model_config["group_by"]  # type: ignore
         except KeyError:
-            raise Exception(
-                f"Model '{model.__name__}' with aggregation target "
-                "does not specify ConfigDict.group_by."
-            )
+            raise MissingGroupByError(model=model)
         else:
             return partition_value
 
