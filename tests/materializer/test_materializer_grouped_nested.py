@@ -2,13 +2,14 @@ from typing import Annotated
 
 import pytest
 from graphty import ConfigDict, ModelMaterializer
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from tests.materializer.param import Expected, Parameter
 
 
 class DeeplyNested(BaseModel):
     model_config = ConfigDict(group_by="x")
 
+    x: int = Field(exclude=True)
     y: list[int]
 
 
@@ -59,7 +60,24 @@ class Model5(BaseModel):
 
 data = [{"x": 1, "y": 2}, {"x": 1, "y": 3}, {"x": 3, "y": 4}]
 
-expected = [
+expected_bindings = [
+    {
+        "x": 1,
+        "model": {"x": 1, "y": [2, 3]},
+        "aggr": [
+            {"y": 2, "deeply_nested": {"x": 1, "y": [2, 3]}},
+            {"y": 3, "deeply_nested": {"x": 1, "y": [2, 3]}},
+        ],
+    },
+    {
+        "x": 3,
+        "model": {"x": 3, "y": [4]},
+        "aggr": [{"y": 4, "deeply_nested": {"x": 3, "y": [4]}}],
+    },
+]
+
+
+expected_model_dump = [
     {
         "x": 1,
         "model": {"y": [2, 3]},
@@ -75,22 +93,26 @@ expected = [
     },
 ]
 
-
 params: list[Parameter] = [
     Parameter(
-        kwargs={"model": Model1, "data": data}, expected=Expected(bindings=expected)
+        kwargs={"model": Model1, "data": data},
+        expected=Expected(bindings=expected_bindings, model_dump=expected_model_dump),
     ),
     Parameter(
-        kwargs={"model": Model2, "data": data}, expected=Expected(bindings=expected)
+        kwargs={"model": Model2, "data": data},
+        expected=Expected(bindings=expected_bindings, model_dump=expected_model_dump),
     ),
     Parameter(
-        kwargs={"model": Model3, "data": data}, expected=Expected(bindings=expected)
+        kwargs={"model": Model3, "data": data},
+        expected=Expected(bindings=expected_bindings, model_dump=expected_model_dump),
     ),
     Parameter(
-        kwargs={"model": Model4, "data": data}, expected=Expected(bindings=expected)
+        kwargs={"model": Model4, "data": data},
+        expected=Expected(bindings=expected_bindings, model_dump=expected_model_dump),
     ),
     Parameter(
-        kwargs={"model": Model5, "data": data}, expected=Expected(bindings=expected)
+        kwargs={"model": Model5, "data": data},
+        expected=Expected(bindings=expected_bindings, model_dump=expected_model_dump),
     ),
 ]
 

@@ -6,7 +6,7 @@ from typing import NamedTuple
 
 import pytest
 from graphty import ConfigDict, ModelMaterializer
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from tests.materializer.param import Expected, Parameter
 
 
@@ -17,11 +17,14 @@ class TestParameter(NamedTuple):
 
 class Model1(BaseModel):
     model_config = ConfigDict(group_by="x")
+
+    x: int = Field(exclude=True)
     y: int
 
 
 class Model2(BaseModel):
     model_config = ConfigDict(group_by="x")
+
     x: int
     y: int
 
@@ -30,7 +33,8 @@ data = [{"x": 1, "y": 2}, {"x": 1, "y": 2}]
 
 params: list[Parameter] = [
     Parameter(
-        kwargs={"model": Model1, "data": data}, expected=Expected(bindings=[{"y": 2}])
+        kwargs={"model": Model1, "data": data},
+        expected=Expected(bindings=[{"x": 1, "y": 2}], model_dump=[{"y": 2}]),
     ),
     Parameter(
         kwargs={"model": Model2, "data": data},
