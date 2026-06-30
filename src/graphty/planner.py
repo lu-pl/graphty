@@ -28,6 +28,16 @@ def get_model_projection(model: type[BaseModel]) -> set[str]:
     }
 
 
+def build_model_struct(model: type[BaseModel], base_cols: set[str]) -> pl.Struct:
+    model_projection: set[str] = get_model_projection(model=model)
+    exprs: chain[pl.Expr] = chain(
+        [pl.col(member) for member in model_projection],
+        Exprs(model=model, base_cols=base_cols),
+    )
+
+    return pl.struct(*exprs)
+
+
 class ModelUnionDispatch:
     def __init__(
         self,
@@ -53,11 +63,7 @@ class ModelUnionDispatch:
     def compute_model_expr(self) -> pl.Expr:
         match self.model_members, self.model_union_members:
             case [model], []:
-                # TODO: this duplicates Exprs._struct_expr and should be abstracted
-                model_projection: set[str] = get_model_projection(model=model)
-                return pl.struct(model_projection).struct.with_fields(
-                    *Exprs(model=model, base_cols=self.base_cols),
-                )
+                return build_model_struct(model=model, base_cols=self.base_cols)
 
         whens = self._compute_whens()
         when, *rest_whens = whens
@@ -186,7 +192,10 @@ class Exprs(Iterable[pl.Expr]):
             annotation = cast(TypeForm, field_info.annotation)
 
             if is_pydantic_model_static_type(annotation):
-                expr: pl.Expr = self._struct_expr(model=annotation).alias(field_name)
+                expr: pl.Expr = build_model_struct(
+                    model=annotation, base_cols=self.base_cols
+                ).alias(field_name)
+
                 yield (expr.first() if self.group_context else expr)
 
             elif is_pydantic_model_union_static_type(annotation):
@@ -210,9 +219,9 @@ class Exprs(Iterable[pl.Expr]):
                 agg: Agg = self._get_agg(field_info)
 
                 if is_pydantic_model_static_type(item_annotation):
-                    inner: pl.Expr = self._struct_expr(model=item_annotation).alias(
-                        field_name
-                    )
+                    inner: pl.Expr = build_model_struct(
+                        model=item_annotation, base_cols=self.base_cols
+                    ).alias(field_name)
                 elif is_pydantic_model_union_static_type(item_annotation):
                     inner = (
                         ModelUnionDispatch(
@@ -232,14 +241,6 @@ class Exprs(Iterable[pl.Expr]):
                     if self.group_context
                     else expr.implode().over(partition_by=partition_value)
                 )
-
-    def _struct_expr(self, model: type[BaseModel]) -> pl.Expr:
-        model_projection: set[str] = get_model_projection(model=model)
-        exprs: chain[pl.Expr] = chain(
-            [pl.col(member) for member in model_projection],
-            Exprs(model=model, base_cols=self.base_cols),
-        )
-        return pl.struct(*exprs)
 
     @staticmethod
     def _get_partition_value(model: type[BaseModel]) -> str:
