@@ -2,13 +2,14 @@ from collections.abc import Callable, Iterable, Iterator
 from functools import cached_property, reduce
 from itertools import chain
 from types import UnionType
-from typing import Annotated, cast, get_args, get_origin
+from typing import Annotated, Literal, cast, get_args, get_origin, overload
 
 import polars as pl
 from pydantic import BaseModel, Discriminator, Tag
 from pydantic.fields import FieldInfo
 from typing_extensions import TypeForm, get_annotations
 
+from graphty.utils.alias_map import AliasMap
 from graphty.utils.exceptions import MissingDiscriminatorError, MissingGroupByError
 from graphty.utils.type_utils import (
     de_annotate,
@@ -36,6 +37,32 @@ def build_model_struct(model: type[BaseModel], base_cols: set[str]) -> pl.Struct
     )
 
     return pl.struct(*exprs)
+
+
+@overload
+def get_group_by_value(
+    model: type[BaseModel], base_cols: set[str], strict: Literal[True] = True
+) -> str: ...
+
+
+@overload
+def get_group_by_value(
+    model: type[BaseModel], base_cols: set[str], strict: Literal[False]
+) -> str | None: ...
+
+
+def get_group_by_value(
+    model: type[BaseModel], base_cols: set[str], strict: bool = True
+) -> str | None:
+    try:
+        group_by_value = model.model_config["group_by"]
+    except KeyError:
+        if not strict:
+            return None
+        raise MissingGroupByError(model=model)
+    else:
+        alias_map = AliasMap(model=model, projection=base_cols)
+        return alias_map[group_by_value]
 
 
 class ModelUnionDispatch:
@@ -215,9 +242,6 @@ class Exprs(Iterable[pl.Expr]):
             elif is_parametrized_list_static_type(annotation):
                 (item_annotation,) = get_args(annotation)
 
-                partition_value: str = self._get_partition_value(model=self.model)
-                agg: Agg = self._get_agg(field_info)
-
                 if is_pydantic_model_static_type(item_annotation):
                     inner: pl.Expr = build_model_struct(
                         model=item_annotation, base_cols=self.base_cols
@@ -235,21 +259,18 @@ class Exprs(Iterable[pl.Expr]):
                 else:
                     inner: pl.Expr = pl.col(field_name)
 
+                agg: Agg = self._get_agg(field_info)
                 expr: pl.Expr = agg.apply_to(inner)
+
+                partition_value: str = get_group_by_value(
+                    model=self.model, base_cols=self.base_cols
+                )
+
                 yield (
                     expr
                     if self.group_context
                     else expr.implode().over(partition_by=partition_value)
                 )
-
-    @staticmethod
-    def _get_partition_value(model: type[BaseModel]) -> str:
-        try:
-            partition_value = model.model_config["group_by"]  # type: ignore
-        except KeyError:
-            raise MissingGroupByError(model=model)
-        else:
-            return partition_value
 
     @staticmethod
     def _get_agg(field_info: FieldInfo) -> Agg:
@@ -269,7 +290,9 @@ class LazyFramePlanner:
         )
 
     def run(self) -> pl.LazyFrame:
-        group_by: str | None = self.model.model_config.get("group_by")
+        group_by: str | None = get_group_by_value(
+            model=self.model, base_cols=self._base_cols, strict=False
+        )
         model_projection: set[str] = get_model_projection(self.model)
 
         if group_by is None:
