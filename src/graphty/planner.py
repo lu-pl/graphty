@@ -21,16 +21,18 @@ from graphty.utils.type_utils import (
 from graphty.utils.types import Agg
 
 
-def get_model_projection(model: type[BaseModel]) -> set[str]:
+def get_model_projection(model: type[BaseModel], base_cols: set[str]) -> set[str]:
+    alias_map = AliasMap(model=model, projection=base_cols)
+
     return {
-        field_name
+        alias_map[field_name]
         for field_name, field_info in model.model_fields.items()
         if not is_structured_field_static_type(field_info.annotation)
     }
 
 
 def build_model_struct(model: type[BaseModel], base_cols: set[str]) -> pl.Struct:
-    model_projection: set[str] = get_model_projection(model=model)
+    model_projection: set[str] = get_model_projection(model=model, base_cols=base_cols)
     exprs: chain[pl.Expr] = chain(
         [pl.col(member) for member in model_projection],
         Exprs(model=model, base_cols=base_cols),
@@ -57,9 +59,9 @@ def get_group_by_value(
     try:
         group_by_value = model.model_config["group_by"]
     except KeyError:
-        if not strict:
-            return None
-        raise MissingGroupByError(model=model)
+        if strict:
+            raise MissingGroupByError(model=model)
+        return None
     else:
         alias_map = AliasMap(model=model, projection=base_cols)
         return alias_map[group_by_value]
@@ -113,7 +115,10 @@ class ModelUnionDispatch:
 
         union_projection: set[str] = reduce(
             set.union,
-            [get_model_projection(member) for member in self.model_members],
+            [
+                get_model_projection(model=member, base_cols=self.base_cols)
+                for member in self.model_members
+            ],
         )
 
         discriminator: Discriminator = self._resolve_discriminator()
@@ -126,8 +131,14 @@ class ModelUnionDispatch:
                     for model in self.model_members
                 }
 
+                # Resolve the discriminator field name to its column alias.
+                # Pydantic requires all union members to share the same alias for the discriminator field,
+                # so the first (or any) union member is sufficient for instantiating AliasMap.
+                _model, *_ = self.model_members
+                alias_map = AliasMap(model=_model, projection=union_projection)
+
                 return [
-                    pl.when(pl.col(discriminator_value).is_in(list(k))).then(
+                    pl.when(pl.col(alias_map[discriminator_value]).is_in(list(k))).then(
                         pl.struct(union_projection).struct.with_fields(
                             *Exprs(model=v, base_cols=self.base_cols),
                         )
@@ -257,7 +268,8 @@ class Exprs(Iterable[pl.Expr]):
                         .alias(field_name)
                     )
                 else:
-                    inner: pl.Expr = pl.col(field_name)
+                    alias_map = AliasMap(model=self.model, projection=self.base_cols)
+                    inner: pl.Expr = pl.col(alias_map[field_name])
 
                 agg: Agg = self._get_agg(field_info)
                 expr: pl.Expr = agg.apply_to(inner)
@@ -293,23 +305,18 @@ class LazyFramePlanner:
         group_by: str | None = get_group_by_value(
             model=self.model, base_cols=self._base_cols, strict=False
         )
-        model_projection: set[str] = get_model_projection(self.model)
+        model_projection: set[str] = get_model_projection(
+            model=self.model, base_cols=self._base_cols
+        )
 
         if group_by is None:
             return self.lazy_frame.with_columns(
                 *Exprs(model=self.model, base_cols=self._base_cols)
             ).drop(self._base_cols.difference(model_projection))
 
-        return (
-            self.lazy_frame.group_by(group_by, maintain_order=True)
-            .agg(
-                *[
-                    pl.col(col).first()
-                    for col in model_projection.difference({group_by})
-                ],
-                *Exprs(model=self.model, base_cols=self._base_cols, group_context=True),
-            )
-            .drop(group_by if group_by not in model_projection else [])
+        return self.lazy_frame.group_by(group_by, maintain_order=True).agg(
+            *[pl.col(col).first() for col in model_projection.difference({group_by})],
+            *Exprs(model=self.model, base_cols=self._base_cols, group_context=True),
         )
 
     @cached_property
