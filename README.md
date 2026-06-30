@@ -7,15 +7,13 @@
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 
 
-Pydantic object graph materializer over relational data.
+`graphty` is a Python library for materializing [Pydantic](https://github.com/pydantic/pydantic) object graphs from relational data.
 
 > WARNING: This project is in an early stage of development and should be used with caution.
 
 ## Introduction 
 
-`graphty` is a Python library for materializing [Pydantic](https://github.com/pydantic/pydantic) object graphs from relational data.
-
-The library addresses the *structural* [impedance mismatch](https://en.wikipedia.org/wiki/Object%E2%80%93relational_impedance_mismatch) between flat relational data representations and hierarchical object models. It extends Pydantic with a small declarative DSL for expressing grouping, aggregation, and deduplication operations. These transformations are compiled into [Polars](https://github.com/pola-rs/polars) expressions, yielding records that are subsequently validated and materialized as Pydantic model objects.
+The `graphty` library addresses the *structural* [impedance mismatch](https://en.wikipedia.org/wiki/Object%E2%80%93relational_impedance_mismatch) between flat relational data representations and hierarchical object models. It extends Pydantic with a small declarative DSL for expressing grouping, aggregation, and deduplication operations. These transformations are compiled into [Polars](https://github.com/pola-rs/polars) expressions, yielding records that are subsequently validated and materialized as Pydantic model objects.
 
 Although originally developed for implementing typed REST APIs over SPARQL endpoints, the model materializer can be applied to any tabular data representation, including SQL query results, CSV files, dataframes, etc.
 
@@ -26,19 +24,10 @@ Although originally developed for implementing typed REST APIs over SPARQL endpo
 
 ## Usage
 
-As mentioned, `graphty` uses Pydantic model definitions as declarative data transformation instructions, extending Pydantic with a small DSL for grouping and aggregation. The materializer treats two kinds of Pydantic model field types specially: 
-
-- Model types
-  - Pydantic models
-  - Pydantic model unions
-    - Single model unions (e.g. `Model | None`)
-    - Multi model unions (must be [discriminated union models](https://pydantic.dev/docs/validation/latest/concepts/unions/#discriminated-unions))
-
-- Aggregation types
-  - List of scalar type
-  - List of model type
+As mentioned, `graphty` uses Pydantic model definitions as declarative data transformation instructions, extending Pydantic with a small DSL for grouping and aggregation. 
 
 Nested models are resolved recursively, `list` types are interpreted as aggregation targets and require a `group_by` definition in `ConfigDict`.
+
 
 ### Basic Example
 
@@ -76,9 +65,9 @@ models: Iterator[Author] = ModelMaterializer(model=Author, data=data).generate_m
 
 Here, the `Author` model defines a model aggregation target for the `Author.works` field; the `graphty` planner will therefore partition the underlying data according to the "name" key and aggregate `Work` objects into a list.
 
-> Note that `graphty`  is recursive on all code paths and ergo enables materialization of arbitrarily nested and aggregated object graphs.
+> Note that `graphty` is recursive on all code paths and ergo enables materialization of arbitrarily nested and aggregated object graphs.
 
-The above validates against the `Author` model and serializes to the following JSON tree:
+The above validates against the `Author` model and serializes to the following JSON representation:
 
 ```json
 [
