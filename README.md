@@ -19,7 +19,7 @@ Although originally developed for implementing typed REST APIs over SPARQL endpo
 
 
 ## Installation
-`graphty` is a [PEP 621](https://peps.python.org/pep-0621/)-compliant package and available on PyPI.
+`graphty` is a [PEP 621](https://peps.python.org/pep-0621/)-compliant package and available on [PyPI](https://pypi.org/project/graphty/).
 
 
 ## Usage
