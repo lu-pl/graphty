@@ -33,12 +33,12 @@ def get_model_projection(model: type[BaseModel], base_cols: set[str]) -> set[str
 
 def build_model_struct(model: type[BaseModel], base_cols: set[str]) -> pl.Struct:
     model_projection: set[str] = get_model_projection(model=model, base_cols=base_cols)
-    exprs: chain[pl.Expr] = chain(
-        [pl.col(member) for member in model_projection],
-        Exprs(model=model, base_cols=base_cols),
-    )
+    exprs: list[pl.Expr] = [
+        *[pl.col(member) for member in model_projection],
+        *Exprs(model=model, base_cols=base_cols),
+    ]
 
-    return pl.struct(*exprs)
+    return pl.struct(exprs or base_cols)
 
 
 @overload
@@ -310,9 +310,14 @@ class LazyFramePlanner:
         )
 
         if group_by is None:
-            return self.lazy_frame.with_columns(
-                *Exprs(model=self.model, base_cols=self._base_cols)
-            ).drop(self._base_cols.difference(model_projection))
+            if self.model.model_fields:
+                # TODO: when Opacity/planner disengagement is implemented, fields marked
+                # as Opaque should not count as "model fields" for this check — a model
+                # with only Opaque fields should also return the raw frame.
+                return self.lazy_frame.with_columns(
+                    *Exprs(model=self.model, base_cols=self._base_cols)
+                ).drop(self._base_cols.difference(model_projection))
+            return self.lazy_frame
 
         return self.lazy_frame.group_by(group_by, maintain_order=True).agg(
             *[pl.col(col).first() for col in model_projection.difference({group_by})],
