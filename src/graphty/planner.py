@@ -260,7 +260,7 @@ class Exprs(Iterable[pl.Expr]):
                 elif is_pydantic_model_union_static_type(item_annotation):
                     inner = (
                         ModelUnionDispatch(
-                            type_form=item_annotation,  # pyright: ignore
+                            type_form=cast(TypeForm, item_annotation),
                             base_cols=self.base_cols,
                             discriminator=field_info.discriminator,
                         )
