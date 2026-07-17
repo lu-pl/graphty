@@ -31,7 +31,7 @@ def get_model_projection(model: type[BaseModel], base_cols: set[str]) -> set[str
     }
 
 
-def build_model_struct(model: type[BaseModel], base_cols: set[str]) -> pl.Struct:
+def build_model_struct(model: type[BaseModel], base_cols: set[str]) -> pl.Expr:
     model_projection: set[str] = get_model_projection(model=model, base_cols=base_cols)
     exprs: list[pl.Expr] = [
         *[pl.col(member) for member in model_projection],
