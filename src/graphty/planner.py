@@ -57,7 +57,7 @@ def get_group_by_value(
     model: type[BaseModel], base_cols: set[str], strict: bool = True
 ) -> str | None:
     try:
-        group_by_value = model.model_config["group_by"]
+        group_by_value = model.model_config["group_by"]  # type: ignore
     except KeyError:
         if strict:
             raise MissingGroupByError(model=model)
