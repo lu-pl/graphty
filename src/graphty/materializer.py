@@ -21,7 +21,7 @@ class ModelMaterializer[TModel: BaseModel]:
     @cached_property
     def df(self) -> pl.DataFrame:
         lazy_frame: pl.LazyFrame = self._planner.run()
-        return lazy_frame.collect()
+        return lazy_frame.collect(engine="streaming")
 
     def generate_bindings(self) -> Iterator[dict[str, object]]:
         return self.df.iter_rows(named=True)
