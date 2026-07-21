@@ -21,6 +21,16 @@ from graphty.utils.type_utils import (
 from graphty.utils.types import Agg
 
 
+class Opaque: ...
+
+
+def _get_opaque(field_info: FieldInfo) -> Opaque | None:
+    opaque: Opaque | None = next(
+        (entry for entry in field_info.metadata if isinstance(entry, Opaque)), None
+    )
+    return opaque
+
+
 def get_model_projection(model: type[BaseModel], base_cols: set[str]) -> set[str]:
     alias_map = AliasMap(model=model, projection=base_cols)
 
@@ -28,6 +38,7 @@ def get_model_projection(model: type[BaseModel], base_cols: set[str]) -> set[str
         alias_map[field_name]
         for field_name, field_info in model.model_fields.items()
         if not is_structured_field_static_type(field_info.annotation)
+        if _get_opaque(field_info) is None
     }
 
 
@@ -227,6 +238,10 @@ class Exprs(Iterable[pl.Expr]):
 
     def __iter__(self) -> Iterator[pl.Expr]:
         for field_name, field_info in self.model.model_fields.items():
+            if (opaque := _get_opaque(field_info=field_info)) is not None:
+                yield pl.struct(self.base_cols).alias(field_name)
+                continue
+
             annotation = cast(TypeForm, field_info.annotation)
 
             if is_pydantic_model_static_type(annotation):
