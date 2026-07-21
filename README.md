@@ -11,6 +11,14 @@
 
 > WARNING: This project is in an early stage of development and should be used with caution.
 
+
+The core idea of `graphty` is to utilize Pydantic models as a declarative DSL for building Polars query plans.
+
+Instead of writing imperative data transformation code - group this, aggregate that, nest this inside that - users should be able to define the shape of what they want as a Pydantic model hierarchy; and `graphty` figures out the respective materialization from flat tabular data.
+
+> `graphty` interprets Pydantic models as validation *and* transformation specifications.
+
+
 ## Introduction 
 
 The `graphty` library addresses the *structural* [impedance mismatch](https://en.wikipedia.org/wiki/Object%E2%80%93relational_impedance_mismatch) between flat relational data representations and hierarchical object models. It extends Pydantic with a small declarative DSL for expressing grouping, aggregation, and deduplication operations. These transformations are compiled into [Polars](https://github.com/pola-rs/polars) expressions, yielding records that are subsequently validated and materialized as Pydantic model objects.
