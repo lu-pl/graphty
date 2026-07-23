@@ -13,6 +13,7 @@ from graphty.utils.alias_map import AliasMap
 from graphty.utils.exceptions import MissingDiscriminatorError, MissingGroupByError
 from graphty.utils.type_utils import (
     de_annotate,
+    get_metadata,
     is_parametrized_list_static_type,
     is_pydantic_model_static_type,
     is_pydantic_model_union_static_type,
@@ -271,7 +272,11 @@ class Exprs(Iterable[pl.Expr]):
                     alias_map = AliasMap(model=self.model, projection=self.base_cols)
                     inner: pl.Expr = pl.col(alias_map[field_name])
 
-                agg: Agg = self._get_agg(field_info)
+                agg: Agg = (
+                    Agg()
+                    if (_agg := get_metadata(field_info=field_info, cls=Agg)) is None
+                    else _agg
+                )
                 expr: pl.Expr = agg.apply_to(inner)
 
                 partition_value: str = get_group_by_value(
@@ -283,13 +288,6 @@ class Exprs(Iterable[pl.Expr]):
                     if self.group_context
                     else expr.implode().over(partition_by=partition_value)
                 )
-
-    @staticmethod
-    def _get_agg(field_info: FieldInfo) -> Agg:
-        agg: Agg | None = next(
-            (entry for entry in field_info.metadata if isinstance(entry, Agg)), None
-        )
-        return agg or Agg()
 
 
 class LazyFramePlanner:

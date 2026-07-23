@@ -3,6 +3,7 @@ import typing
 from typing import Annotated, TypeGuard, get_args, get_origin
 
 from pydantic import BaseModel
+from pydantic.fields import FieldInfo
 from typing_extensions import TypeForm
 
 
@@ -61,4 +62,12 @@ def is_structured_field_static_type(type_form: TypeForm) -> bool:
             is_pydantic_model_union_static_type,
             is_parametrized_list_static_type,
         ]
+    )
+
+
+def get_metadata[T](field_info: FieldInfo, cls: type[T]) -> T | None:
+    """Generic typing.Annotated metadata lookup helper."""
+    return next(
+        (entry for entry in field_info.metadata if isinstance(entry, cls)),
+        None,
     )
