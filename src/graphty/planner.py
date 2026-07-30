@@ -22,50 +22,38 @@ from graphty.utils.type_utils import (
 from graphty.utils.types import Agg
 
 
-def get_model_projection(model: type[BaseModel], base_cols: set[str]) -> set[str]:
-    alias_map = AliasMap(model=model, projection=base_cols)
+class ModelInfo[TModel: type[BaseModel]]:
+    def __init__(self, model: TModel, base_cols: set[str]) -> None:
+        self.model = model
+        self.base_cols = base_cols
 
-    return {
-        alias_map[field_name]
-        for field_name, field_info in model.model_fields.items()
-        if not is_structured_field_static_type(field_info.annotation)
-    }
+    @cached_property
+    def group_by_value(self) -> str | None:
+        try:
+            group_by_value = self.model.model_config["group_by"]
+        except KeyError:
+            return None
+        else:
+            alias_map = AliasMap(model=self.model, projection=self.base_cols)
+            return alias_map[group_by_value]
 
+    @cached_property
+    def model_projection(self) -> set[str]:
+        alias_map = AliasMap(model=self.model, projection=self.base_cols)
 
-def build_model_struct(model: type[BaseModel], base_cols: set[str]) -> pl.Struct:
-    model_projection: set[str] = get_model_projection(model=model, base_cols=base_cols)
-    exprs: list[pl.Expr] = [
-        *[pl.col(member) for member in model_projection],
-        *Exprs(model=model, base_cols=base_cols),
-    ]
+        return {
+            alias_map[field_name]
+            for field_name, field_info in self.model.model_fields.items()
+            if not is_structured_field_static_type(field_info.annotation)
+        }
 
-    return pl.struct(exprs or base_cols)
+    def build_model_struct(self):
+        exprs: list[pl.Expr] = [
+            *[pl.col(member) for member in self.model_projection],
+            *Exprs(model=self.model, base_cols=self.base_cols),
+        ]
 
-
-@overload
-def get_group_by_value(
-    model: type[BaseModel], base_cols: set[str], strict: Literal[True] = True
-) -> str: ...
-
-
-@overload
-def get_group_by_value(
-    model: type[BaseModel], base_cols: set[str], strict: Literal[False]
-) -> str | None: ...
-
-
-def get_group_by_value(
-    model: type[BaseModel], base_cols: set[str], strict: bool = True
-) -> str | None:
-    try:
-        group_by_value = model.model_config["group_by"]
-    except KeyError:
-        if strict:
-            raise MissingGroupByError(model=model)
-        return None
-    else:
-        alias_map = AliasMap(model=model, projection=base_cols)
-        return alias_map[group_by_value]
+        return pl.struct(exprs or self.base_cols)
 
 
 class ModelUnionDispatch:
@@ -93,7 +81,8 @@ class ModelUnionDispatch:
     def compute_model_expr(self) -> pl.Expr:
         match self.model_members, self.model_union_members:
             case [model], []:
-                return build_model_struct(model=model, base_cols=self.base_cols)
+                model_info = ModelInfo(model=model, base_cols=self.base_cols)
+                return model_info.build_model_struct()
 
         whens = self._compute_whens()
         when, *rest_whens = whens
@@ -117,7 +106,7 @@ class ModelUnionDispatch:
         union_projection: set[str] = reduce(
             set.union,
             [
-                get_model_projection(model=member, base_cols=self.base_cols)
+                ModelInfo(model=member, base_cols=self.base_cols).model_projection
                 for member in self.model_members
             ],
         )
@@ -224,16 +213,17 @@ class Exprs(Iterable[pl.Expr]):
     ) -> None:
         self.model = model
         self.base_cols = base_cols
+
         self.group_context = group_context
+        self.model_info = ModelInfo(model=model, base_cols=base_cols)
 
     def __iter__(self) -> Iterator[pl.Expr]:
-        for field_name, field_info in self.model.model_fields.items():
+        for field_name, field_info in self.model_info.model.model_fields.items():
             annotation = cast(TypeForm, field_info.annotation)
 
             if is_pydantic_model_static_type(annotation):
-                expr: pl.Expr = build_model_struct(
-                    model=annotation, base_cols=self.base_cols
-                ).alias(field_name)
+                model_info = ModelInfo(model=annotation, base_cols=self.base_cols)
+                expr: pl.Expr = model_info.build_model_struct().alias(field_name)
 
                 yield (expr.first() if self.group_context else expr)
 
@@ -255,9 +245,10 @@ class Exprs(Iterable[pl.Expr]):
                 (item_annotation,) = get_args(annotation)
 
                 if is_pydantic_model_static_type(item_annotation):
-                    inner: pl.Expr = build_model_struct(
+                    model_info = ModelInfo(
                         model=item_annotation, base_cols=self.base_cols
-                    ).alias(field_name)
+                    )
+                    inner: pl.Expr = model_info.build_model_struct().alias(field_name)
                 elif is_pydantic_model_union_static_type(item_annotation):
                     inner = (
                         ModelUnionDispatch(
@@ -279,9 +270,9 @@ class Exprs(Iterable[pl.Expr]):
                 )
                 expr: pl.Expr = agg.apply_to(inner)
 
-                partition_value: str = get_group_by_value(
-                    model=self.model, base_cols=self.base_cols
-                )
+                partition_value: str | None = self.model_info.group_by_value
+                if partition_value is None:
+                    raise MissingGroupByError(model=self.model)
 
                 yield (
                     expr
@@ -300,25 +291,23 @@ class LazyFramePlanner:
         )
 
     def run(self) -> pl.LazyFrame:
-        group_by: str | None = get_group_by_value(
-            model=self.model, base_cols=self._base_cols, strict=False
-        )
-        model_projection: set[str] = get_model_projection(
-            model=self.model, base_cols=self._base_cols
-        )
+        model_info = ModelInfo(model=self.model, base_cols=self._base_cols)
 
-        if group_by is None:
+        if (group_by_value := model_info.group_by_value) is None:
             if self.model.model_fields:
                 # TODO: when Opacity/planner disengagement is implemented, fields marked
                 # as Opaque should not count as "model fields" for this check — a model
                 # with only Opaque fields should also return the raw frame.
                 return self.lazy_frame.with_columns(
                     *Exprs(model=self.model, base_cols=self._base_cols)
-                ).drop(self._base_cols.difference(model_projection))
+                ).drop(self._base_cols.difference(model_info.model_projection))
             return self.lazy_frame
 
-        return self.lazy_frame.group_by(group_by, maintain_order=True).agg(
-            *[pl.col(col).first() for col in model_projection.difference({group_by})],
+        return self.lazy_frame.group_by(group_by_value, maintain_order=True).agg(
+            *[
+                pl.col(col).first()
+                for col in model_info.model_projection.difference({group_by_value})
+            ],
             *Exprs(model=self.model, base_cols=self._base_cols, group_context=True),
         )
 
