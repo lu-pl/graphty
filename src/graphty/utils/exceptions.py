@@ -10,6 +10,14 @@ class MissingGroupByError(Exception):
         )
 
 
+class InvalidGroupByError(Exception):
+    def __init__(self, model: type[BaseModel], group_by_value: str) -> None:
+        super().__init__(
+            f"Invalid grouping key '{group_by_value}' for '{model.__name__}'. "
+            "Grouping keys must reference scalar model fields."
+        )
+
+
 class MissingDiscriminatorError(Exception):
     def __init__(self, type_form: TypeForm) -> None:
         super().__init__(

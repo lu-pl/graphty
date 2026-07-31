@@ -10,7 +10,11 @@ from pydantic.fields import FieldInfo
 from typing_extensions import TypeForm, get_annotations
 
 from graphty.utils.alias_map import AliasMap
-from graphty.utils.exceptions import MissingDiscriminatorError, MissingGroupByError
+from graphty.utils.exceptions import (
+    InvalidGroupByError,
+    MissingDiscriminatorError,
+    MissingGroupByError,
+)
 from graphty.utils.type_utils import (
     de_annotate,
     get_metadata,
@@ -64,6 +68,15 @@ def get_group_by_value(
             raise MissingGroupByError(model=model)
         return None
     else:
+        valid_grouping_keys: list[str] = [
+            field_name
+            for field_name, field_info in model.model_fields.items()
+            if not is_structured_field_static_type(field_info.annotation)
+        ]
+
+        if group_by_value not in valid_grouping_keys:
+            raise InvalidGroupByError(group_by_value=group_by_value, model=model)
+
         alias_map = AliasMap(model=model, projection=base_cols)
         return alias_map[group_by_value]
 

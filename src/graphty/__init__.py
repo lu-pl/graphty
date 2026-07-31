@@ -1,4 +1,5 @@
 from graphty.materializer import ModelMaterializer as ModelMaterializer
+from graphty.utils.exceptions import InvalidGroupByError as InvalidGroupByError
 from graphty.utils.exceptions import (
     MissingDiscriminatorError as MissingDiscriminatorError,
 )
