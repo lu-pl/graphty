@@ -1,8 +1,14 @@
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterator
 from functools import cached_property, reduce
 from itertools import chain
 from types import UnionType
-from typing import Annotated, Literal, cast, get_args, get_origin, overload
+from typing import (
+    Annotated,
+    MutableMapping,
+    cast,
+    get_args,
+    get_origin,
+)
 
 import polars as pl
 from pydantic import BaseModel, Discriminator, Tag
@@ -11,86 +17,30 @@ from typing_extensions import TypeForm, get_annotations
 
 from graphty.utils.alias_map import AliasMap
 from graphty.utils.exceptions import (
-    InvalidGroupByError,
     MissingDiscriminatorError,
     MissingGroupByError,
 )
+from graphty.utils.model_info import ModelInfo, ModelInfoRegistry
 from graphty.utils.type_utils import (
     de_annotate,
     get_metadata,
     is_parametrized_list_static_type,
     is_pydantic_model_static_type,
     is_pydantic_model_union_static_type,
-    is_structured_field_static_type,
 )
 from graphty.utils.types import Agg
-
-
-def get_model_projection(model: type[BaseModel], base_cols: set[str]) -> set[str]:
-    alias_map = AliasMap(model=model, projection=base_cols)
-
-    return {
-        alias_map[field_name]
-        for field_name, field_info in model.model_fields.items()
-        if not is_structured_field_static_type(field_info.annotation)
-    }
-
-
-def build_model_struct(model: type[BaseModel], base_cols: set[str]) -> pl.Struct:
-    model_projection: set[str] = get_model_projection(model=model, base_cols=base_cols)
-    exprs: list[pl.Expr] = [
-        *[pl.col(member) for member in model_projection],
-        *Exprs(model=model, base_cols=base_cols),
-    ]
-
-    return pl.struct(exprs or base_cols)
-
-
-@overload
-def get_group_by_value(
-    model: type[BaseModel], base_cols: set[str], strict: Literal[True] = True
-) -> str: ...
-
-
-@overload
-def get_group_by_value(
-    model: type[BaseModel], base_cols: set[str], strict: Literal[False]
-) -> str | None: ...
-
-
-def get_group_by_value(
-    model: type[BaseModel], base_cols: set[str], strict: bool = True
-) -> str | None:
-    try:
-        group_by_value = model.model_config["group_by"]
-    except KeyError:
-        if strict:
-            raise MissingGroupByError(model=model)
-        return None
-    else:
-        valid_grouping_keys: list[str] = [
-            field_name
-            for field_name, field_info in model.model_fields.items()
-            if not is_structured_field_static_type(field_info.annotation)
-        ]
-
-        if group_by_value not in valid_grouping_keys:
-            raise InvalidGroupByError(group_by_value=group_by_value, model=model)
-
-        alias_map = AliasMap(model=model, projection=base_cols)
-        return alias_map[group_by_value]
 
 
 class ModelUnionDispatch:
     def __init__(
         self,
         type_form: TypeForm,
-        base_cols: set[str],
         discriminator: str | Callable | None,
+        planner: "LazyFramePlanner",
     ) -> None:
         self.type_form = type_form
-        self.base_cols = base_cols
         self.discriminator = discriminator
+        self.planner = planner
 
         self.model_members: list[type[BaseModel]] = [
             member
@@ -106,7 +56,7 @@ class ModelUnionDispatch:
     def compute_model_expr(self) -> pl.Expr:
         match self.model_members, self.model_union_members:
             case [model], []:
-                return build_model_struct(model=model, base_cols=self.base_cols)
+                return self.planner._build_model_struct(model=model)
 
         whens = self._compute_whens()
         when, *rest_whens = whens
@@ -130,7 +80,7 @@ class ModelUnionDispatch:
         union_projection: set[str] = reduce(
             set.union,
             [
-                get_model_projection(model=member, base_cols=self.base_cols)
+                self.planner.model_registry[member].model_projection
                 for member in self.model_members
             ],
         )
@@ -154,7 +104,7 @@ class ModelUnionDispatch:
                 return [
                     pl.when(pl.col(alias_map[discriminator_value]).is_in(list(k))).then(
                         pl.struct(union_projection).struct.with_fields(
-                            *Exprs(model=v, base_cols=self.base_cols),
+                            *self.planner._generate_expressions(model=v)
                         )
                     )
                     for k, v in discriminator_mapping.items()
@@ -171,7 +121,7 @@ class ModelUnionDispatch:
                 return [
                     pl.when(discriminator_expression == k).then(
                         pl.struct(union_projection).struct.with_fields(
-                            *Exprs(model=v, base_cols=self.base_cols),
+                            *self.planner._generate_expressions(model=v)
                         )
                     )
                     for k, v in tag_mapping.items()
@@ -185,8 +135,8 @@ class ModelUnionDispatch:
             chain.from_iterable(
                 ModelUnionDispatch(
                     type_form=cast(TypeForm, type_form),
-                    base_cols=self.base_cols,
                     discriminator=None,
+                    planner=self.planner,
                 )._compute_whens()
                 for type_form in self.model_union_members
             )
@@ -231,58 +181,89 @@ class ModelUnionDispatch:
         return dict(_generate())
 
 
-class Exprs(Iterable[pl.Expr]):
+class LazyFramePlanner[TModel: type[BaseModel]]:
     def __init__(
-        self, model: type[BaseModel], base_cols: set[str], group_context: bool = False
+        self, model: TModel, data: pl._typing.FrameInitTypes | pl.LazyFrame
     ) -> None:
         self.model = model
-        self.base_cols = base_cols
-        self.group_context = group_context
+        self.lazy_frame: pl.LazyFrame = (
+            data if isinstance(data, pl.LazyFrame) else pl.LazyFrame(data=data)
+        )
 
-    def __iter__(self) -> Iterator[pl.Expr]:
-        for field_name, field_info in self.model.model_fields.items():
+        self.model_registry: MutableMapping[type[BaseModel], ModelInfo] = (
+            ModelInfoRegistry(base_cols=self._base_cols)
+        )
+
+    def run(self) -> pl.LazyFrame:
+        model_info: ModelInfo[TModel] = self.model_registry[self.model]
+        group_by: str | None = model_info.group_by
+        model_projection: set[str] = model_info.model_projection
+
+        if group_by is None:
+            if self.model.model_fields:
+                # TODO: when Opacity/planner disengagement is implemented, fields marked
+                # as Opaque should not count as "model fields" for this check — a model
+                # with only Opaque fields should also return the raw frame.
+                return self.lazy_frame.with_columns(
+                    *self._generate_expressions(model=self.model)
+                ).drop(self._base_cols.difference(model_projection))
+            return self.lazy_frame
+
+        return self.lazy_frame.group_by(group_by, maintain_order=True).agg(
+            *[pl.col(col).first() for col in model_projection.difference({group_by})],
+            *self._generate_expressions(model=self.model, group_context=True),
+        )
+
+    @cached_property
+    def _base_cols(self) -> set[str]:
+        return set(self.lazy_frame.collect_schema().names())
+
+    def _generate_expressions(
+        self, model: type[BaseModel], group_context: bool = False
+    ) -> Iterator[pl.Expr]:
+        for field_name, field_info in model.model_fields.items():
             annotation = cast(TypeForm, field_info.annotation)
 
             if is_pydantic_model_static_type(annotation):
-                expr: pl.Expr = build_model_struct(
-                    model=annotation, base_cols=self.base_cols
-                ).alias(field_name)
+                expr: pl.Expr = self._build_model_struct(model=annotation).alias(
+                    field_name
+                )
 
-                yield (expr.first() if self.group_context else expr)
+                yield (expr.first() if group_context else expr)
 
             elif is_pydantic_model_union_static_type(annotation):
                 expr: pl.Expr = (
                     ModelUnionDispatch(
-                        type_form=get_annotations(self.model)[
+                        type_form=get_annotations(model)[
                             field_name
                         ],  # pass full TypeForm for discriminator resolution
-                        base_cols=self.base_cols,
                         discriminator=field_info.discriminator,
+                        planner=self,
                     )
                     .compute_model_expr()
                     .alias(field_name)
                 )
-                yield (expr.first() if self.group_context else expr)
+                yield (expr.first() if group_context else expr)
 
             elif is_parametrized_list_static_type(annotation):
                 (item_annotation,) = get_args(annotation)
 
                 if is_pydantic_model_static_type(item_annotation):
-                    inner: pl.Expr = build_model_struct(
-                        model=item_annotation, base_cols=self.base_cols
+                    inner: pl.Expr = self._build_model_struct(
+                        model=item_annotation
                     ).alias(field_name)
                 elif is_pydantic_model_union_static_type(item_annotation):
                     inner = (
                         ModelUnionDispatch(
                             type_form=item_annotation,  # pyright: ignore
-                            base_cols=self.base_cols,
                             discriminator=field_info.discriminator,
+                            planner=self,
                         )
                         .compute_model_expr()
                         .alias(field_name)
                     )
                 else:
-                    alias_map = AliasMap(model=self.model, projection=self.base_cols)
+                    alias_map = self.model_registry[model].alias_map
                     inner: pl.Expr = pl.col(alias_map[field_name])
 
                 agg: Agg = (
@@ -292,49 +273,21 @@ class Exprs(Iterable[pl.Expr]):
                 )
                 expr: pl.Expr = agg.apply_to(inner)
 
-                partition_value: str = get_group_by_value(
-                    model=self.model, base_cols=self.base_cols
-                )
+                partition_value = self.model_registry[model].group_by
+                if partition_value is None:
+                    raise MissingGroupByError(model=model)
 
                 yield (
                     expr
-                    if self.group_context
+                    if group_context
                     else expr.implode().over(partition_by=partition_value)
                 )
 
+    def _build_model_struct(self, model: type[BaseModel]) -> pl.Expr:
+        model_info: ModelInfo = self.model_registry[model]
+        exprs: list[pl.Expr] = [
+            *[pl.col(member) for member in model_info.model_projection],
+            *self._generate_expressions(model=model),
+        ]
 
-class LazyFramePlanner:
-    def __init__(
-        self, model: type[BaseModel], data: pl._typing.FrameInitTypes | pl.LazyFrame
-    ) -> None:
-        self.model = model
-        self.lazy_frame: pl.LazyFrame = (
-            data if isinstance(data, pl.LazyFrame) else pl.LazyFrame(data=data)
-        )
-
-    def run(self) -> pl.LazyFrame:
-        group_by: str | None = get_group_by_value(
-            model=self.model, base_cols=self._base_cols, strict=False
-        )
-        model_projection: set[str] = get_model_projection(
-            model=self.model, base_cols=self._base_cols
-        )
-
-        if group_by is None:
-            if self.model.model_fields:
-                # TODO: when Opacity/planner disengagement is implemented, fields marked
-                # as Opaque should not count as "model fields" for this check — a model
-                # with only Opaque fields should also return the raw frame.
-                return self.lazy_frame.with_columns(
-                    *Exprs(model=self.model, base_cols=self._base_cols)
-                ).drop(self._base_cols.difference(model_projection))
-            return self.lazy_frame
-
-        return self.lazy_frame.group_by(group_by, maintain_order=True).agg(
-            *[pl.col(col).first() for col in model_projection.difference({group_by})],
-            *Exprs(model=self.model, base_cols=self._base_cols, group_context=True),
-        )
-
-    @cached_property
-    def _base_cols(self) -> set[str]:
-        return set(self.lazy_frame.collect_schema().names())
+        return pl.struct(exprs or self._base_cols)
