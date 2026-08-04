@@ -266,11 +266,7 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
                     alias_map = self.model_registry[model].alias_map
                     inner: pl.Expr = pl.col(alias_map[field_name])
 
-                agg: Agg = (
-                    Agg()
-                    if (_agg := get_metadata(field_info=field_info, cls=Agg)) is None
-                    else _agg
-                )
+                agg: Agg = get_metadata(field_info=field_info, cls=Agg) or Agg()
                 expr: pl.Expr = agg.apply_to(inner)
 
                 partition_value = self.model_registry[model].group_by
