@@ -16,7 +16,7 @@ The core idea of `graphty` is to utilize Pydantic models as a declarative DSL fo
 
 Instead of writing imperative data transformation code - group this, aggregate that, nest this inside that - users should be able to define the shape of what they want as a Pydantic model hierarchy; and `graphty` figures out the respective materialization from flat tabular data.
 
-> `graphty` interprets Pydantic models as validation *and* transformation specifications.
+> `graphty` interprets Pydantic models as DataFrame transformation specifications.
 
 
 ## Introduction 
