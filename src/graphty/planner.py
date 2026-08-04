@@ -234,9 +234,8 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
             elif is_pydantic_model_union_static_type(annotation):
                 expr: pl.Expr = (
                     ModelUnionDispatch(
-                        type_form=get_annotations(model)[
-                            field_name
-                        ],  # pass full TypeForm for discriminator resolution
+                        # pass full TypeForm for discriminator resolution
+                        type_form=get_annotations(model)[field_name],
                         discriminator=field_info.discriminator,
                         planner=self,
                     )
@@ -255,7 +254,8 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
                 elif is_pydantic_model_union_static_type(item_annotation):
                     inner = (
                         ModelUnionDispatch(
-                            type_form=item_annotation,  # pyright: ignore
+                            # item_annotation is the full TypeForm required for union resolution
+                            type_form=cast(TypeForm, item_annotation),
                             discriminator=field_info.discriminator,
                             planner=self,
                         )
