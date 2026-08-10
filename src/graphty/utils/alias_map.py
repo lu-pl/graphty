@@ -117,7 +117,7 @@ class AliasMap(UserDict):
         """Helper for resolving alias/validation_alias values in FieldInfo objects.
 
         Note that pydantic.AliasPath is not meaningful in the context of flat relational binding mappings;
-        the method therefore raises an Exception for AliasPath and AliasChoices/AliasPath objects.
+        the method therefore raises NotImplementedError for AliasPath and AliasChoices/AliasPath objects.
         """
         match alias:
             case str():
@@ -131,4 +131,4 @@ class AliasMap(UserDict):
                     "Unable to resolve alias. "
                     f"Expected str or AliasChoices of str, got '{alias}'."
                 )
-                raise ValueError(msg)
+                raise NotImplementedError(msg)

@@ -61,14 +61,14 @@ params_sad_path: list[TestParameter] = [
     TestParameter(
         kwargs={"model": Model3, "projection": set()},
         expected=RaisesParameter(
-            exception=ValueError,
+            exception=NotImplementedError,
             match="Unable to resolve alias. Expected str or AliasChoices of str",
         ),
     ),
     TestParameter(
         kwargs={"model": Model4, "projection": set()},
         expected=RaisesParameter(
-            exception=ValueError,
+            exception=NotImplementedError,
             match="Unable to resolve alias. Expected str or AliasChoices of str",
         ),
     ),
