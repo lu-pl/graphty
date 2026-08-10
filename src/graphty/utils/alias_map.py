@@ -1,6 +1,7 @@
 from collections import UserDict
 from collections.abc import Callable, Iterator
 
+from graphty.utils.exceptions import AliasResolutionError
 from pydantic import AliasChoices, BaseModel
 from pydantic.fields import FieldInfo
 
@@ -53,11 +54,12 @@ class AliasMap(UserDict):
                     )
 
                     if alias is None:
-                        msg = (
-                            f"Unable to resolve AliasChoice for field '{k}' of model '{self.model.__name__}'.\n"
-                            f"None of computed aliases '{aliases}' in projection '{self.projection}'."
+                        raise AliasResolutionError(
+                            field_name=k,
+                            model=self.model,
+                            aliases=aliases,
+                            projection=self.projection,
                         )
-                        raise ValueError(msg)
 
                     yield (k, alias)
                 case _:  # pragma: no cover; unreachable

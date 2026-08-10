@@ -1,5 +1,6 @@
 from typing import NamedTuple
 
+from graphty.utils.exceptions import AliasResolutionError
 from pydantic import AliasChoices, AliasPath, BaseModel, ConfigDict, Field
 
 
@@ -36,7 +37,8 @@ params_sad_path: list[TestParameter] = [
         is raised for AliasChoice/projection mismatches.""",
         kwargs={"model": Model1, "projection": set()},
         expected=RaisesParameter(
-            exception=ValueError, match="Unable to resolve AliasChoice"
+            exception=AliasResolutionError,
+            match="Empty or missing input data projection.",
         ),
     ),
     TestParameter(
@@ -44,7 +46,8 @@ params_sad_path: list[TestParameter] = [
         is raised for AliasChoice/projection mismatches.""",
         kwargs={"model": Model1, "projection": {"x", "y", "z"}},
         expected=RaisesParameter(
-            exception=ValueError, match="Unable to resolve AliasChoice"
+            exception=AliasResolutionError,
+            match="None of computed aliases .* in input data projection",
         ),
     ),
     TestParameter(
