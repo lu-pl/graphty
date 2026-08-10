@@ -23,9 +23,11 @@ class AliasMap(UserDict):
     Note that AliasPath is currently not supported.
     """
 
-    def __init__(self, model: type[BaseModel], projection: set[str]) -> None:
+    def __init__(
+        self, model: type[BaseModel], projection: set[str] | None = None
+    ) -> None:
         self.model = model
-        self.projection = projection
+        self.projection: set[str] = set() if projection is None else projection
 
         self.data = dict(self._generate_alias_map())
 
