@@ -247,7 +247,7 @@ params = [
 
 
 @pytest.mark.parametrize("param", params)
-def test_materalizer_nested_discriminated_union(param):
+def test_materializer_nested_discriminated_union_bindings_dump(param):
 
     materializer = ModelMaterializer(**param.kwargs)
 
@@ -256,3 +256,16 @@ def test_materalizer_nested_discriminated_union(param):
 
     assert bindings == param.expected.bindings
     assert model_dump == param.expected.model_dump
+
+
+@pytest.mark.parametrize("param", params)
+def test_materializer_nested_discriminated_union_model(param):
+    materializer = ModelMaterializer(**param.kwargs)
+
+    cat, dog, lizard, snake, car, bike = materializer.generate_models()
+    assert isinstance(cat.thing, Cat)
+    assert isinstance(dog.thing, Dog)
+    assert isinstance(lizard.thing, Lizard)
+    assert isinstance(snake.thing, Snake)
+    assert isinstance(car.thing, Car)
+    assert isinstance(bike.thing, Bike)
