@@ -167,11 +167,8 @@ class ModelUnionDispatch:
 
         raise MissingDiscriminatorError(type_form=self.type_form)
 
-    # TODO: this needs to be more defensive and raise a clear exception in case Tags cannot be retrieved
-    def _get_tag_mapping(self):
-        """Prototype; this needs proper abstraction."""
-
-        def _generate():
+    def _get_tag_mapping(self) -> dict[str, type[BaseModel]]:
+        def _generate() -> Iterator[tuple[str, type[BaseModel]]]:
             for type_form in get_args(de_annotate(self.type_form)):
                 model, *rest = get_args(type_form)
                 tag = next(member for member in rest if isinstance(member, Tag))
