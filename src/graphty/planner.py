@@ -125,6 +125,8 @@ class ModelUnionDispatch:
                         )
                     )
                     for k, v in tag_mapping.items()
+                    # model union members are handled in _compute_model_union_whens
+                    if is_pydantic_model_static_type(v)
                 ]
 
             case _:  # pragma: no cover
