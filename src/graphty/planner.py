@@ -111,7 +111,7 @@ class ModelUnionDispatch:
                 ]
 
             case Callable():
-                tag_mapping: dict[str, type[BaseModel]] = self._get_tag_mapping()
+                tag_mapping: dict[str, TypeForm] = self._get_tag_mapping()
 
                 discriminator_expression = pl.struct(union_projection).map_elements(
                     function=discriminator_value,
@@ -169,7 +169,7 @@ class ModelUnionDispatch:
 
         raise MissingDiscriminatorError(type_form=self.type_form)
 
-    def _get_tag_mapping(self) -> dict[str, type[BaseModel]]:
+    def _get_tag_mapping(self) -> dict[str, TypeForm]:
         def _generate() -> Iterator[tuple[str, type[BaseModel]]]:
             for type_form in get_args(de_annotate(self.type_form)):
                 model, *rest = get_args(type_form)
