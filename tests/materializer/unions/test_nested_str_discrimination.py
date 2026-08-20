@@ -1,3 +1,10 @@
+"""Basic test for nested string discriminated unions.
+
+Covers:
+- Two levels of string discriminated unions
+  (Cat in Cat | Dog is itself a discriminated union)
+"""
+
 from typing import Annotated, Literal, Union
 
 import pytest
@@ -59,21 +66,18 @@ params: list[Parameter] = [
 
 
 @pytest.mark.parametrize("param", params)
-def test_materializer_nested_discriminated_unions_cat_dog_bindings_dump(param):
+def test_nested_str_discriminated_union(param):
     materializer = ModelMaterializer(**param.kwargs)
-
-    bindings = list(materializer.generate_bindings())
-    model_dump = [model.model_dump() for model in materializer.generate_models()]
-
-    assert bindings == param.expected.bindings
-    assert model_dump == param.expected.model_dump
+    assert list(materializer.generate_bindings()) == param.expected.bindings
+    assert [
+        m.model_dump() for m in materializer.generate_models()
+    ] == param.expected.model_dump
 
 
-@pytest.mark.parametrize("param", params)
-def test_materializer_nested_discriminated_unions_cat_dog_model(param):
-    materializer = ModelMaterializer(**param.kwargs)
-
-    black_cat, white_cat, dog = materializer.generate_models()
+def test_nested_str_discriminated_union_model_types():
+    black_cat, white_cat, dog = ModelMaterializer(
+        model=Model, data=data
+    ).generate_models()
     assert isinstance(black_cat.pet, BlackCat)
     assert isinstance(white_cat.pet, WhiteCat)
     assert isinstance(dog.pet, Dog)

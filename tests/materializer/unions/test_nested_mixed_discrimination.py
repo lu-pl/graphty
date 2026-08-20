@@ -1,3 +1,9 @@
+"""Tests for nested callable discriminated unions.
+
+Covers:
+- Mixed callable and string discriminated unions with heavy nesting.
+"""
+
 from typing import Annotated, Any, Literal
 
 import pytest
@@ -44,7 +50,6 @@ class Bike(BaseModel):
 
 def get_domain(v: Any) -> str | None:
     kind = v.get("kind") if isinstance(v, dict) else getattr(v, "kind", None)
-
     if kind in {"cat", "dog", "lizard", "snake"}:
         return "animal"
     if kind in {"car", "bike"}:
@@ -54,7 +59,6 @@ def get_domain(v: Any) -> str | None:
 
 def get_animal_group(v: Any) -> str | None:
     kind = v.get("kind") if isinstance(v, dict) else getattr(v, "kind", None)
-
     if kind in {"cat", "dog"}:
         return "mammal"
     if kind in {"lizard", "snake"}:
@@ -62,25 +66,15 @@ def get_animal_group(v: Any) -> str | None:
     return None
 
 
-Mammal = Annotated[
-    Cat | Dog,
-    Field(discriminator="kind"),
-]
-
-Reptile = Annotated[
-    Lizard | Snake,
-    Field(discriminator="kind"),
-]
+Mammal = Annotated[Cat | Dog, Field(discriminator="kind")]
+Reptile = Annotated[Lizard | Snake, Field(discriminator="kind")]
 
 Animal = Annotated[
     Annotated[Mammal, Tag("mammal")] | Annotated[Reptile, Tag("reptile")],
     Discriminator(get_animal_group),
 ]
 
-Vehicle = Annotated[
-    Car | Bike,
-    Field(discriminator="kind"),
-]
+Vehicle = Annotated[Car | Bike, Field(discriminator="kind")]
 
 Thing = Annotated[
     Annotated[Animal, Tag("animal")] | Annotated[Vehicle, Tag("vehicle")],
@@ -105,141 +99,103 @@ data = {
     "gears": [None, None, None, None, None, 21],
 }
 
-EXPECTED_BINDINGS: list[dict[str, object]] = [
-    {
-        "thing": {
-            "kind": "cat",
-            "name": "Misty",
-            "lives": 9,
-            "bark_volume": None,
-            "length_cm": None,
-            "venomous": None,
-            "make": None,
-            "doors": None,
-            "brand": None,
-            "gears": None,
-        },
-    },
-    {
-        "thing": {
-            "kind": "dog",
-            "name": "Rex",
-            "lives": None,
-            "bark_volume": 11,
-            "length_cm": None,
-            "venomous": None,
-            "make": None,
-            "doors": None,
-            "brand": None,
-            "gears": None,
-        },
-    },
-    {
-        "thing": {
-            "kind": "lizard",
-            "name": "Lizzy",
-            "lives": None,
-            "bark_volume": None,
-            "length_cm": 42.5,
-            "venomous": None,
-            "make": None,
-            "doors": None,
-            "brand": None,
-            "gears": None,
-        },
-    },
-    {
-        "thing": {
-            "kind": "snake",
-            "name": "Snek",
-            "lives": None,
-            "bark_volume": None,
-            "length_cm": None,
-            "venomous": True,
-            "make": None,
-            "doors": None,
-            "brand": None,
-            "gears": None,
-        },
-    },
-    {
-        "thing": {
-            "kind": "car",
-            "name": None,
-            "lives": None,
-            "bark_volume": None,
-            "length_cm": None,
-            "venomous": None,
-            "make": "Toyota",
-            "doors": 4,
-            "brand": None,
-            "gears": None,
-        },
-    },
-    {
-        "thing": {
-            "kind": "bike",
-            "name": None,
-            "lives": None,
-            "bark_volume": None,
-            "length_cm": None,
-            "venomous": None,
-            "make": None,
-            "doors": None,
-            "brand": "Trek",
-            "gears": 21,
-        },
-    },
-]
-
-params = [
+params: list[Parameter] = [
     Parameter(
         kwargs={"model": Model, "data": data},
         expected=Expected(
-            bindings=EXPECTED_BINDINGS,
-            model_dump=[
+            bindings=[
                 {
                     "thing": {
                         "kind": "cat",
-                        "lives": 9,
                         "name": "Misty",
-                    },
+                        "lives": 9,
+                        "bark_volume": None,
+                        "length_cm": None,
+                        "venomous": None,
+                        "make": None,
+                        "doors": None,
+                        "brand": None,
+                        "gears": None,
+                    }
                 },
                 {
                     "thing": {
-                        "bark_volume": 11,
                         "kind": "dog",
                         "name": "Rex",
-                    },
+                        "lives": None,
+                        "bark_volume": 11,
+                        "length_cm": None,
+                        "venomous": None,
+                        "make": None,
+                        "doors": None,
+                        "brand": None,
+                        "gears": None,
+                    }
                 },
                 {
                     "thing": {
                         "kind": "lizard",
-                        "length_cm": 42.5,
                         "name": "Lizzy",
-                    },
+                        "lives": None,
+                        "bark_volume": None,
+                        "length_cm": 42.5,
+                        "venomous": None,
+                        "make": None,
+                        "doors": None,
+                        "brand": None,
+                        "gears": None,
+                    }
                 },
                 {
                     "thing": {
                         "kind": "snake",
                         "name": "Snek",
+                        "lives": None,
+                        "bark_volume": None,
+                        "length_cm": None,
                         "venomous": True,
-                    },
+                        "make": None,
+                        "doors": None,
+                        "brand": None,
+                        "gears": None,
+                    }
                 },
                 {
                     "thing": {
-                        "doors": 4,
                         "kind": "car",
+                        "name": None,
+                        "lives": None,
+                        "bark_volume": None,
+                        "length_cm": None,
+                        "venomous": None,
                         "make": "Toyota",
-                    },
+                        "doors": 4,
+                        "brand": None,
+                        "gears": None,
+                    }
                 },
                 {
                     "thing": {
+                        "kind": "bike",
+                        "name": None,
+                        "lives": None,
+                        "bark_volume": None,
+                        "length_cm": None,
+                        "venomous": None,
+                        "make": None,
+                        "doors": None,
                         "brand": "Trek",
                         "gears": 21,
-                        "kind": "bike",
-                    },
+                    }
                 },
+            ],
+            model_dump=[
+                {"thing": {"kind": "cat", "lives": 9, "name": "Misty"}},
+                {"thing": {"bark_volume": 11, "kind": "dog", "name": "Rex"}},
+                {"thing": {"kind": "lizard", "length_cm": 42.5, "name": "Lizzy"}},
+                {"thing": {"kind": "snake", "name": "Snek", "venomous": True}},
+                {"thing": {"doors": 4, "kind": "car", "make": "Toyota"}},
+                {"thing": {"brand": "Trek", "gears": 21, "kind": "bike"}},
             ],
         ),
     )
@@ -247,22 +203,18 @@ params = [
 
 
 @pytest.mark.parametrize("param", params)
-def test_materializer_nested_discriminated_union_bindings_dump(param):
-
+def test_nested_callable_discriminated_union(param):
     materializer = ModelMaterializer(**param.kwargs)
-
-    bindings = list(materializer.generate_bindings())
-    model_dump = [model.model_dump() for model in materializer.generate_models()]
-
-    assert bindings == param.expected.bindings
-    assert model_dump == param.expected.model_dump
+    assert list(materializer.generate_bindings()) == param.expected.bindings
+    assert [
+        m.model_dump() for m in materializer.generate_models()
+    ] == param.expected.model_dump
 
 
-@pytest.mark.parametrize("param", params)
-def test_materializer_nested_discriminated_union_model(param):
-    materializer = ModelMaterializer(**param.kwargs)
-
-    cat, dog, lizard, snake, car, bike = materializer.generate_models()
+def test_nested_callable_discriminated_union_model_types():
+    cat, dog, lizard, snake, car, bike = ModelMaterializer(
+        model=Model, data=data
+    ).generate_models()
     assert isinstance(cat.thing, Cat)
     assert isinstance(dog.thing, Dog)
     assert isinstance(lizard.thing, Lizard)
