@@ -1,3 +1,14 @@
+"""Basic test for string discriminated unions.
+
+This is the example from the Pydantic docs section on string discriminated unions;
+see https://pydantic.dev/docs/validation/latest/concepts/unions/#discriminated-unions-with-string-discriminators.
+
+Covers:
+- Basic string discriminaged unions
+- Multi-value Literal discriminators (Lizard model)
+- Different union type indicators (Annotated, Union, |)
+"""
+
 from typing import Annotated, Literal, Union
 
 import pytest
@@ -73,12 +84,19 @@ params: list[Parameter] = [
 
 
 @pytest.mark.parametrize("param", params)
-def test_materalizer_string_discriminated_union(param):
-
+def test_str_discriminated_union(param):
     materializer = ModelMaterializer(**param.kwargs)
+    assert list(materializer.generate_bindings()) == param.expected.bindings
+    assert [
+        m.model_dump() for m in materializer.generate_models()
+    ] == param.expected.model_dump
 
-    bindings = list(materializer.generate_bindings())
-    model_dump = [model.model_dump() for model in materializer.generate_models()]
 
-    assert bindings == param.expected.bindings
-    assert model_dump == param.expected.model_dump
+def test_str_discriminated_union_model_types():
+    cat, dog, lizard, reptile = ModelMaterializer(
+        model=Model1, data=data
+    ).generate_models()
+    assert isinstance(cat.pet, Cat)
+    assert isinstance(dog.pet, Dog)
+    assert isinstance(lizard.pet, Lizard)
+    assert isinstance(reptile.pet, Lizard)

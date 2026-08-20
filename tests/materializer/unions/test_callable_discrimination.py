@@ -1,3 +1,12 @@
+"""Basic test for callable discriminated unions.
+
+This is the example from the Pydantic docs section on callable discriminated unions;
+see https://pydantic.dev/docs/validation/latest/concepts/unions/#discriminated-unions-with-callable-discriminator.
+
+Covers:
+- Basic two-member callable discriminated union
+"""
+
 from typing import Annotated, Any, Literal, Optional, Union
 
 import pytest
@@ -44,20 +53,12 @@ params: list[Parameter] = [
         kwargs={"model": ThanksgivingDinner, "data": data},
         expected=Expected(
             bindings=[
-                {
-                    "dessert": {"time_to_cook": 1, "fruit": "apple", "filling": None},
-                },
-                {
-                    "dessert": {"time_to_cook": 2, "fruit": None, "filling": "pumpkin"},
-                },
+                {"dessert": {"time_to_cook": 1, "fruit": "apple", "filling": None}},
+                {"dessert": {"time_to_cook": 2, "fruit": None, "filling": "pumpkin"}},
             ],
             model_dump=[
-                {
-                    "dessert": {"time_to_cook": 1, "fruit": "apple"},
-                },
-                {
-                    "dessert": {"time_to_cook": 2, "filling": "pumpkin"},
-                },
+                {"dessert": {"time_to_cook": 1, "fruit": "apple"}},
+                {"dessert": {"time_to_cook": 2, "filling": "pumpkin"}},
             ],
         ),
     )
@@ -65,12 +66,17 @@ params: list[Parameter] = [
 
 
 @pytest.mark.parametrize("param", params)
-def test_materalizer_callable_discriminated_union(param):
-
+def test_callable_discriminated_union(param):
     materializer = ModelMaterializer(**param.kwargs)
+    assert list(materializer.generate_bindings()) == param.expected.bindings
+    assert [
+        m.model_dump() for m in materializer.generate_models()
+    ] == param.expected.model_dump
 
-    bindings = list(materializer.generate_bindings())
-    model_dump = [model.model_dump() for model in materializer.generate_models()]
 
-    assert bindings == param.expected.bindings
-    assert model_dump == param.expected.model_dump
+def test_callable_discriminated_union_model_types():
+    apple, pumpkin = ModelMaterializer(
+        model=ThanksgivingDinner, data=data
+    ).generate_models()
+    assert isinstance(apple.dessert, ApplePie)
+    assert isinstance(pumpkin.dessert, PumpkinPie)
