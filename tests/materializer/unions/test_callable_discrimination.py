@@ -5,13 +5,14 @@ see https://pydantic.dev/docs/validation/latest/concepts/unions/#discriminated-u
 
 Covers:
 - Basic two-member callable discriminated union
+- Discrimnated union model aggregation (top-level + nested union aggregation)
 """
 
 from typing import Annotated, Any, Literal, Optional, Union
 
 import pytest
-from graphty import ModelMaterializer
-from pydantic import BaseModel, Discriminator, Tag
+from graphty import ConfigDict, ModelMaterializer
+from pydantic import BaseModel, Discriminator, Field, Tag
 from tests.materializer.param import Expected, Parameter
 
 
@@ -43,10 +44,31 @@ class ThanksgivingDinner(BaseModel):
     ]
 
 
+class GroupedDinner(BaseModel):
+    model_config = ConfigDict(group_by="time")
+
+    time: int = Field(alias="time_to_cook")
+    dinner: list[ThanksgivingDinner]
+
+
+class NestedGroupedDinner(BaseModel):
+    model_config = ConfigDict(group_by="time")
+
+    time: int = Field(alias="time_to_cook")
+    nested: GroupedDinner
+
+
 data = [
     {"time_to_cook": 1, "fruit": "apple"},
     {"time_to_cook": 2, "filling": "pumpkin"},
 ]
+
+aggregation_data = [
+    {"time_to_cook": 1, "fruit": "apple"},
+    {"time_to_cook": 1, "filling": "pumpkin"},
+    {"time_to_cook": 2, "filling": "pumpkin"},
+]
+
 
 params: list[Parameter] = [
     Parameter(
@@ -61,7 +83,123 @@ params: list[Parameter] = [
                 {"dessert": {"time_to_cook": 2, "filling": "pumpkin"}},
             ],
         ),
-    )
+    ),
+    Parameter(
+        kwargs={"model": GroupedDinner, "data": aggregation_data},
+        expected=Expected(
+            bindings=[
+                {
+                    "time_to_cook": 1,
+                    "dinner": [
+                        {
+                            "dessert": {
+                                "fruit": "apple",
+                                "time_to_cook": 1,
+                                "filling": None,
+                            }
+                        },
+                        {
+                            "dessert": {
+                                "fruit": None,
+                                "time_to_cook": 1,
+                                "filling": "pumpkin",
+                            }
+                        },
+                    ],
+                },
+                {
+                    "time_to_cook": 2,
+                    "dinner": [
+                        {
+                            "dessert": {
+                                "fruit": None,
+                                "time_to_cook": 2,
+                                "filling": "pumpkin",
+                            }
+                        }
+                    ],
+                },
+            ],
+            model_dump=[
+                {
+                    "time": 1,
+                    "dinner": [
+                        {"dessert": {"time_to_cook": 1, "fruit": "apple"}},
+                        {"dessert": {"time_to_cook": 1, "filling": "pumpkin"}},
+                    ],
+                },
+                {
+                    "time": 2,
+                    "dinner": [{"dessert": {"time_to_cook": 2, "filling": "pumpkin"}}],
+                },
+            ],
+        ),
+    ),
+    Parameter(
+        kwargs={"model": NestedGroupedDinner, "data": aggregation_data},
+        expected=Expected(
+            bindings=[
+                {
+                    "time_to_cook": 1,
+                    "nested": {
+                        "time_to_cook": 1,
+                        "dinner": [
+                            {
+                                "dessert": {
+                                    "fruit": "apple",
+                                    "time_to_cook": 1,
+                                    "filling": None,
+                                }
+                            },
+                            {
+                                "dessert": {
+                                    "fruit": None,
+                                    "time_to_cook": 1,
+                                    "filling": "pumpkin",
+                                }
+                            },
+                        ],
+                    },
+                },
+                {
+                    "time_to_cook": 2,
+                    "nested": {
+                        "time_to_cook": 2,
+                        "dinner": [
+                            {
+                                "dessert": {
+                                    "fruit": None,
+                                    "time_to_cook": 2,
+                                    "filling": "pumpkin",
+                                }
+                            }
+                        ],
+                    },
+                },
+            ],
+            model_dump=[
+                {
+                    "time": 1,
+                    "nested": {
+                        "time": 1,
+                        "dinner": [
+                            {"dessert": {"time_to_cook": 1, "fruit": "apple"}},
+                            {"dessert": {"time_to_cook": 1, "filling": "pumpkin"}},
+                        ],
+                    },
+                },
+                {
+                    "time": 2,
+                    "nested": {
+                        "time": 2,
+                        "dinner": [
+                            {"dessert": {"time_to_cook": 2, "filling": "pumpkin"}}
+                        ],
+                    },
+                },
+            ],
+        ),
+    ),
 ]
 
 
