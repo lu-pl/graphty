@@ -7,12 +7,13 @@ Covers:
 - Basic string discriminaged unions
 - Multi-value Literal discriminators (Lizard model)
 - Different union type indicators (Annotated, Union, |)
+- Discrimnated union model aggregation (top-level + nested union aggregation)
 """
 
 from typing import Annotated, Literal, Union
 
 import pytest
-from graphty import ModelMaterializer
+from graphty import ConfigDict, ModelMaterializer
 from pydantic import BaseModel, Field
 from tests.materializer.param import Expected, Parameter
 
@@ -49,9 +50,31 @@ class Model4(BaseModel):
     n: int
 
 
+class Model5(BaseModel):
+    model_config = ConfigDict(group_by="n")
+
+    n: int
+    pet: list[Annotated[Cat | Dog | Lizard, Field(discriminator="pet_type")]]
+
+
+class Model6(BaseModel):
+    model_config = ConfigDict(group_by="n")
+
+    n: int
+    nested: Model5
+
+
 data = [
     {"pet_type": "cat", "n": 1},
     {"pet_type": "dog", "n": 2},
+    {"pet_type": "lizard", "n": 3},
+    {"pet_type": "reptile", "n": 4},
+]
+
+
+aggregation_data = [
+    {"pet_type": "cat", "n": 1},
+    {"pet_type": "dog", "n": 1},
     {"pet_type": "lizard", "n": 3},
     {"pet_type": "reptile", "n": 4},
 ]
@@ -79,6 +102,32 @@ params: list[Parameter] = [
     Parameter(
         kwargs={"model": Model4, "data": data},
         expected=Expected(bindings=EXPECTED_BINDINGS),
+    ),
+    Parameter(
+        kwargs={"model": Model5, "data": aggregation_data},
+        expected=Expected(
+            bindings=[
+                {"n": 1, "pet": [{"pet_type": "cat"}, {"pet_type": "dog"}]},
+                {"n": 3, "pet": [{"pet_type": "lizard"}]},
+                {"n": 4, "pet": [{"pet_type": "reptile"}]},
+            ]
+        ),
+    ),
+    Parameter(
+        kwargs={"model": Model6, "data": aggregation_data},
+        expected=Expected(
+            bindings=[
+                {
+                    "n": 1,
+                    "nested": {
+                        "n": 1,
+                        "pet": [{"pet_type": "cat"}, {"pet_type": "dog"}],
+                    },
+                },
+                {"n": 3, "nested": {"n": 3, "pet": [{"pet_type": "lizard"}]}},
+                {"n": 4, "nested": {"n": 4, "pet": [{"pet_type": "reptile"}]}},
+            ]
+        ),
     ),
 ]
 
