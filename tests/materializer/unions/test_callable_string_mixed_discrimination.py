@@ -1,4 +1,4 @@
-"""Tests for mixed string/callable discriminated unions.
+"""Tests for mixed callable/string discriminated unions with a simple model union member.
 
 Covers:
 - Callable discriminated union where one tag point to simple model
@@ -116,7 +116,7 @@ params: list[Parameter] = [
 
 
 @pytest.mark.parametrize("param", params)
-def test_mixed_discriminated_union(param):
+def test_callable_string_mixed_discrimination(param):
     materializer = ModelMaterializer(**param.kwargs)
     assert list(materializer.generate_bindings()) == param.expected.bindings
     assert [
@@ -124,7 +124,7 @@ def test_mixed_discriminated_union(param):
     ] == param.expected.model_dump
 
 
-def test_mixed_discriminated_union_model_types():
+def test_callable_string_mixed_discrimination_model_types():
     cat, dog, car = ModelMaterializer(model=Model, data=data).generate_models()
     assert isinstance(cat.thing, Cat)
     assert isinstance(dog.thing, Dog)
