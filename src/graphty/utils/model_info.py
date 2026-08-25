@@ -3,7 +3,8 @@ from functools import cached_property
 
 from graphty.utils.alias_map import AliasMap
 from graphty.utils.exceptions import InvalidGroupByError
-from graphty.utils.type_utils import is_structured_field_static_type
+from graphty.utils.type_utils import get_metadata, is_structured_field_static_type
+from graphty.utils.types import Opaque
 from pydantic import BaseModel
 
 
@@ -22,6 +23,7 @@ class ModelInfo[TModel: type[BaseModel]]:
             self.alias_map[field_name]
             for field_name, field_info in self.model.model_fields.items()
             if not is_structured_field_static_type(field_info.annotation)
+            and not get_metadata(field_info=field_info, cls=Opaque)
         }
 
     @cached_property

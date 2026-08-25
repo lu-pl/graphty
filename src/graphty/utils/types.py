@@ -34,3 +34,15 @@ class Agg:
 
     def apply_to(self, expr: pl.Expr) -> pl.Expr:
         return reduce(lambda x, y: y(x), self, expr)
+
+
+class Opaque:
+    """Type for marking a field as opaque for the planner.
+
+    For Pydantic fields typed with `Annotated[<type>, Opaque()]`
+    the GraphTy planner will forward the entire projection as a pl.Struct
+    and otherwise ignore that field.
+
+    Disengaging the planner for a field with `Opaque`
+    allows a before-validator to act on the raw bindings on the Python level.
+    """

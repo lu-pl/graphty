@@ -8,3 +8,4 @@ from graphty.utils.exceptions import (
 from graphty.utils.exceptions import MissingGroupByError as MissingGroupByError
 from graphty.utils.types import Agg as Agg
 from graphty.utils.types import ConfigDict as ConfigDict
+from graphty.utils.types import Opaque as Opaque
