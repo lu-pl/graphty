@@ -6,12 +6,13 @@ Covers:
 - Bug fix in commit 56888aebda7ff43e2fe2ba5b9e0f25f1e4aeb83b;
   the bug described in https://github.com/lu-pl/graphty/issues/63 needs three conditions:
   A top-level callable-discriminated union with a nested union member and a simple model member.
+- Discrimnated union model aggregation (top-level + nested union aggregation)
 """
 
 from typing import Annotated, Any, Literal
 
 import pytest
-from graphty import ModelMaterializer
+from graphty import ConfigDict, ModelMaterializer
 from pydantic import BaseModel, Discriminator, Field, Tag
 from tests.materializer.param import Expected, Parameter
 
@@ -47,11 +48,32 @@ class Model(BaseModel):
     thing: Thing
 
 
+class GroupedThing(BaseModel):
+    model_config = ConfigDict(group_by="n")
+
+    n: int
+    thing: list[Thing]
+
+
+class NestedGroupedThing(BaseModel):
+    model_config = ConfigDict(group_by="n")
+
+    n: int
+    nested: list[GroupedThing]
+
+
 data = [
     {"kind": "cat"},
     {"kind": "dog"},
     {"kind": "car"},
 ]
+
+aggregation_data = [
+    {"n": 1, "kind": "cat"},
+    {"n": 2, "kind": "dog"},
+    {"n": 1, "kind": "car"},
+]
+
 
 params: list[Parameter] = [
     Parameter(
@@ -68,7 +90,28 @@ params: list[Parameter] = [
                 {"thing": {"kind": "car"}},
             ],
         ),
-    )
+    ),
+    Parameter(
+        kwargs={"model": GroupedThing, "data": aggregation_data},
+        expected=Expected(
+            bindings=[
+                {"n": 1, "thing": [{"kind": "cat"}, {"kind": "car"}]},
+                {"n": 2, "thing": [{"kind": "dog"}]},
+            ],
+        ),
+    ),
+    Parameter(
+        kwargs={"model": NestedGroupedThing, "data": aggregation_data},
+        expected=Expected(
+            bindings=[
+                {
+                    "n": 1,
+                    "nested": [{"n": 1, "thing": [{"kind": "cat"}, {"kind": "car"}]}],
+                },
+                {"n": 2, "nested": [{"n": 2, "thing": [{"kind": "dog"}]}]},
+            ],
+        ),
+    ),
 ]
 
 
