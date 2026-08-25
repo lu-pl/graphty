@@ -7,7 +7,7 @@ Covers:
 from typing import Annotated, Any, Literal
 
 import pytest
-from graphty import ModelMaterializer
+from graphty import ConfigDict, ModelMaterializer
 from pydantic import BaseModel, Discriminator, Field, Tag
 from tests.materializer.param import Expected, Parameter
 
@@ -86,6 +86,20 @@ class Model(BaseModel):
     thing: Thing
 
 
+class GroupedThing(BaseModel):
+    model_config = ConfigDict(group_by="group_key")
+
+    group_key: int
+    thing: list[Thing]
+
+
+class NestedGroupedThing(BaseModel):
+    model_config = ConfigDict(group_by="group_key")
+    group_key: int
+
+    nested: list[GroupedThing]
+
+
 data = {
     "kind": ["cat", "dog", "lizard", "snake", "car", "bike"],
     "name": ["Misty", "Rex", "Lizzy", "Snek", None, None],
@@ -98,6 +112,21 @@ data = {
     "brand": [None, None, None, None, None, "Trek"],
     "gears": [None, None, None, None, None, 21],
 }
+
+aggregation_data = {
+    "group_key": [1, 1, 2, 2, 2, 1],  # cross Animal/Vehicle barrier twice
+    "kind": ["cat", "dog", "lizard", "snake", "car", "bike"],
+    "name": ["Misty", "Rex", "Lizzy", "Snek", None, None],
+    "lives": [9, None, None, None, None, None],
+    "bark_volume": [None, 11, None, None, None, None],
+    "length_cm": [None, None, 42.5, None, None, None],
+    "venomous": [None, None, None, True, None, None],
+    "make": [None, None, None, None, "Toyota", None],
+    "doors": [None, None, None, None, 4, None],
+    "brand": [None, None, None, None, None, "Trek"],
+    "gears": [None, None, None, None, None, 21],
+}
+
 
 params: list[Parameter] = [
     Parameter(
@@ -198,7 +227,241 @@ params: list[Parameter] = [
                 {"thing": {"brand": "Trek", "gears": 21, "kind": "bike"}},
             ],
         ),
-    )
+    ),
+    Parameter(
+        kwargs={"model": GroupedThing, "data": aggregation_data},
+        expected=Expected(
+            bindings=[
+                {
+                    "group_key": 1,
+                    "thing": [
+                        {
+                            "name": "Misty",
+                            "kind": "cat",
+                            "length_cm": None,
+                            "venomous": None,
+                            "bark_volume": None,
+                            "lives": 9,
+                            "brand": None,
+                            "gears": None,
+                            "make": None,
+                            "doors": None,
+                        },
+                        {
+                            "name": "Rex",
+                            "kind": "dog",
+                            "length_cm": None,
+                            "venomous": None,
+                            "bark_volume": 11,
+                            "lives": None,
+                            "brand": None,
+                            "gears": None,
+                            "make": None,
+                            "doors": None,
+                        },
+                        {
+                            "name": None,
+                            "kind": "bike",
+                            "length_cm": None,
+                            "venomous": None,
+                            "bark_volume": None,
+                            "lives": None,
+                            "brand": "Trek",
+                            "gears": 21,
+                            "make": None,
+                            "doors": None,
+                        },
+                    ],
+                },
+                {
+                    "group_key": 2,
+                    "thing": [
+                        {
+                            "name": "Lizzy",
+                            "kind": "lizard",
+                            "length_cm": 42.5,
+                            "venomous": None,
+                            "bark_volume": None,
+                            "lives": None,
+                            "brand": None,
+                            "gears": None,
+                            "make": None,
+                            "doors": None,
+                        },
+                        {
+                            "name": "Snek",
+                            "kind": "snake",
+                            "length_cm": None,
+                            "venomous": True,
+                            "bark_volume": None,
+                            "lives": None,
+                            "brand": None,
+                            "gears": None,
+                            "make": None,
+                            "doors": None,
+                        },
+                        {
+                            "name": None,
+                            "kind": "car",
+                            "length_cm": None,
+                            "venomous": None,
+                            "bark_volume": None,
+                            "lives": None,
+                            "brand": None,
+                            "gears": None,
+                            "make": "Toyota",
+                            "doors": 4,
+                        },
+                    ],
+                },
+            ],
+            model_dump=[
+                {
+                    "group_key": 1,
+                    "thing": [
+                        {"kind": "cat", "name": "Misty", "lives": 9},
+                        {"kind": "dog", "name": "Rex", "bark_volume": 11},
+                        {"kind": "bike", "brand": "Trek", "gears": 21},
+                    ],
+                },
+                {
+                    "group_key": 2,
+                    "thing": [
+                        {"kind": "lizard", "name": "Lizzy", "length_cm": 42.5},
+                        {"kind": "snake", "name": "Snek", "venomous": True},
+                        {"kind": "car", "make": "Toyota", "doors": 4},
+                    ],
+                },
+            ],
+        ),
+    ),
+    Parameter(
+        kwargs={"model": NestedGroupedThing, "data": aggregation_data},
+        expected=Expected(
+            bindings=[
+                {
+                    "group_key": 1,
+                    "nested": [
+                        {
+                            "group_key": 1,
+                            "thing": [
+                                {
+                                    "name": "Misty",
+                                    "kind": "cat",
+                                    "length_cm": None,
+                                    "venomous": None,
+                                    "bark_volume": None,
+                                    "lives": 9,
+                                    "brand": None,
+                                    "gears": None,
+                                    "make": None,
+                                    "doors": None,
+                                },
+                                {
+                                    "name": "Rex",
+                                    "kind": "dog",
+                                    "length_cm": None,
+                                    "venomous": None,
+                                    "bark_volume": 11,
+                                    "lives": None,
+                                    "brand": None,
+                                    "gears": None,
+                                    "make": None,
+                                    "doors": None,
+                                },
+                                {
+                                    "name": None,
+                                    "kind": "bike",
+                                    "length_cm": None,
+                                    "venomous": None,
+                                    "bark_volume": None,
+                                    "lives": None,
+                                    "brand": "Trek",
+                                    "gears": 21,
+                                    "make": None,
+                                    "doors": None,
+                                },
+                            ],
+                        }
+                    ],
+                },
+                {
+                    "group_key": 2,
+                    "nested": [
+                        {
+                            "group_key": 2,
+                            "thing": [
+                                {
+                                    "name": "Lizzy",
+                                    "kind": "lizard",
+                                    "length_cm": 42.5,
+                                    "venomous": None,
+                                    "bark_volume": None,
+                                    "lives": None,
+                                    "brand": None,
+                                    "gears": None,
+                                    "make": None,
+                                    "doors": None,
+                                },
+                                {
+                                    "name": "Snek",
+                                    "kind": "snake",
+                                    "length_cm": None,
+                                    "venomous": True,
+                                    "bark_volume": None,
+                                    "lives": None,
+                                    "brand": None,
+                                    "gears": None,
+                                    "make": None,
+                                    "doors": None,
+                                },
+                                {
+                                    "name": None,
+                                    "kind": "car",
+                                    "length_cm": None,
+                                    "venomous": None,
+                                    "bark_volume": None,
+                                    "lives": None,
+                                    "brand": None,
+                                    "gears": None,
+                                    "make": "Toyota",
+                                    "doors": 4,
+                                },
+                            ],
+                        }
+                    ],
+                },
+            ],
+            model_dump=[
+                {
+                    "group_key": 1,
+                    "nested": [
+                        {
+                            "group_key": 1,
+                            "thing": [
+                                {"kind": "cat", "name": "Misty", "lives": 9},
+                                {"kind": "dog", "name": "Rex", "bark_volume": 11},
+                                {"kind": "bike", "brand": "Trek", "gears": 21},
+                            ],
+                        }
+                    ],
+                },
+                {
+                    "group_key": 2,
+                    "nested": [
+                        {
+                            "group_key": 2,
+                            "thing": [
+                                {"kind": "lizard", "name": "Lizzy", "length_cm": 42.5},
+                                {"kind": "snake", "name": "Snek", "venomous": True},
+                                {"kind": "car", "make": "Toyota", "doors": 4},
+                            ],
+                        }
+                    ],
+                },
+            ],
+        ),
+    ),
 ]
 
 
