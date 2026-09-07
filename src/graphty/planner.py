@@ -200,17 +200,13 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
 
         if group_by is None:
             if self.model.model_fields:
-                # TODO: when Opacity/planner disengagement is implemented, fields marked
-                # as Opaque should not count as "model fields" for this check — a model
-                # with only Opaque fields should also return the raw frame.
                 return self.lazy_frame.with_columns(
                     *self._generate_expressions(model=self.model)
                 ).drop(self._base_cols.difference(model_projection))
             return self.lazy_frame
 
         return self.lazy_frame.group_by(group_by, maintain_order=True).agg(
-            *[pl.col(col).first() for col in model_projection.difference({group_by})],
-            *self._generate_expressions(model=self.model, group_context=True),
+            *self._generate_expressions(model=self.model, group_by=group_by),
         )
 
     @cached_property
@@ -218,7 +214,7 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
         return set(self.lazy_frame.collect_schema().names())
 
     def _generate_expressions(
-        self, model: type[BaseModel], group_context: bool = False
+        self, model: type[BaseModel], group_by: str | None = None
     ) -> Iterator[pl.Expr]:
         for field_name, field_info in model.model_fields.items():
             annotation = cast(TypeForm, field_info.annotation)
@@ -228,7 +224,7 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
                     field_name
                 )
 
-                yield (expr.first() if group_context else expr)
+                yield expr if group_by is None else expr.first()
 
             elif is_pydantic_model_union_static_type(annotation):
                 expr: pl.Expr = (
@@ -241,7 +237,8 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
                     .compute_model_expr()
                     .alias(field_name)
                 )
-                yield (expr.first() if group_context else expr)
+
+                yield expr if group_by is None else expr.first()
 
             elif is_parametrized_list_static_type(annotation):
                 (item_annotation,) = get_args(annotation)
@@ -273,10 +270,17 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
                     raise MissingGroupByError(model=model)
 
                 yield (
-                    expr
-                    if group_context
-                    else expr.implode().over(partition_by=partition_value)
+                    expr.implode().over(partition_by=partition_value)
+                    if group_by is None
+                    else expr
                 )
+
+            else:
+                if group_by is not None:
+                    col = self.model_registry[model].alias_map[field_name]
+
+                    if col != group_by:
+                        yield pl.col(col).first()
 
     def _build_model_struct(self, model: type[BaseModel]) -> pl.Expr:
         model_info: ModelInfo = self.model_registry[model]
