@@ -15,6 +15,7 @@ from pydantic import BaseModel, Discriminator, Tag
 from pydantic.fields import FieldInfo
 from typing_extensions import TypeForm, get_annotations
 
+from graphty.utils.aggregation import Aggregation, Collect, Reduce
 from graphty.utils.alias_map import AliasMap
 from graphty.utils.exceptions import (
     MissingDiscriminatorError,
@@ -28,7 +29,6 @@ from graphty.utils.type_utils import (
     is_pydantic_model_static_type,
     is_pydantic_model_union_static_type,
 )
-from graphty.utils.types import Agg
 
 
 class ModelUnionDispatch:
@@ -206,7 +206,7 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
             return self.lazy_frame
 
         return self.lazy_frame.group_by(group_by, maintain_order=True).agg(
-            *self._generate_expressions(model=self.model, group_by=group_by),
+            *self._generate_expressions(model=self.model, group_context=True),
         )
 
     @cached_property
@@ -214,34 +214,37 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
         return set(self.lazy_frame.collect_schema().names())
 
     def _generate_expressions(
-        self, model: type[BaseModel], group_by: str | None = None
+        self, model: type[BaseModel], group_context: bool = False
     ) -> Iterator[pl.Expr]:
         for field_name, field_info in model.model_fields.items():
             annotation = cast(TypeForm, field_info.annotation)
+            aggregation: Aggregation | None = get_metadata(
+                field_info=field_info, cls=Aggregation
+            )
 
             if is_pydantic_model_static_type(annotation):
                 expr: pl.Expr = self._build_model_struct(model=annotation).alias(
                     field_name
                 )
-
-                yield expr if group_by is None else expr.first()
+                reduction: Aggregation = aggregation or Reduce()
+                yield expr if not group_context else reduction(expr)
 
             elif is_pydantic_model_union_static_type(annotation):
                 expr: pl.Expr = (
                     ModelUnionDispatch(
                         # pass full TypeForm for discriminator resolution
-                        type_form=get_annotations(model)[field_name],
+                        type_form=cast(TypeForm, get_annotations(model)[field_name]),
                         discriminator=field_info.discriminator,
                         planner=self,
                     )
                     .compute_model_expr()
                     .alias(field_name)
                 )
-
-                yield expr if group_by is None else expr.first()
+                reduction: Aggregation = aggregation or Reduce()
+                yield expr if not group_context else reduction(expr)
 
             elif is_parametrized_list_static_type(annotation):
-                (item_annotation,) = get_args(annotation)
+                item_annotation, *_ = get_args(annotation)
 
                 if is_pydantic_model_static_type(item_annotation):
                     inner: pl.Expr = self._build_model_struct(
@@ -262,31 +265,41 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
                     alias_map = self.model_registry[model].alias_map
                     inner: pl.Expr = pl.col(alias_map[field_name])
 
-                agg: Agg = get_metadata(field_info=field_info, cls=Agg) or Agg()
-                expr: pl.Expr = agg.apply_to(inner)
+                agg: Aggregation = aggregation or Collect()
+                expr: pl.Expr = agg(inner)
 
                 partition_value = self.model_registry[model].group_by
                 if partition_value is None:
                     raise MissingGroupByError(model=model)
 
                 yield (
-                    expr.implode().over(partition_by=partition_value)
-                    if group_by is None
-                    else expr
+                    expr
+                    if group_context
+                    else expr.implode().over(partition_by=partition_value)
                 )
 
             else:
+                group_by: str | None = self.model_registry[model].group_by
+
                 if group_by is not None:
                     col = self.model_registry[model].alias_map[field_name]
 
                     if col != group_by:
-                        yield pl.col(col).first()
+                        reduction: Aggregation = aggregation or Reduce()
+                        expr: pl.Expr = reduction(pl.col(col))
+                        yield expr if group_context else expr.over(group_by)
 
     def _build_model_struct(self, model: type[BaseModel]) -> pl.Expr:
         model_info: ModelInfo = self.model_registry[model]
-        exprs: list[pl.Expr] = [
-            *[pl.col(member) for member in model_info.model_projection],
-            *self._generate_expressions(model=model),
-        ]
+        group_by = model_info.group_by
 
+        col_exprs: list[pl.Expr] = (
+            [pl.col(member) for member in model_info.model_projection]
+            if group_by is None
+            else [pl.col(group_by)]
+        )
+        exprs: list[pl.Expr] = [
+            *col_exprs,
+            *self._generate_expressions(model=model, group_context=False),
+        ]
         return pl.struct(exprs or self._base_cols)
