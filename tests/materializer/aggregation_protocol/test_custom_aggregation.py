@@ -6,20 +6,6 @@ from graphty import Aggregation, ConfigDict, ModelMaterializer
 from pydantic import BaseModel
 from tests.materializer.param import Expected, Parameter
 
-
-class Coalesce(Aggregation):
-    def __call__(self, expr: pl.Expr) -> pl.Expr:
-        return expr.drop_nulls().first()
-
-
-type CoalescedOptionalInt = Annotated[
-    int | None | list[int],
-    """Actually int | None.
-    list[int] is for triggering the graphty aggregation code path.
-    Note that this is a contrived example and a workaround.
-    """,
-]
-
 coalesce_data = [
     {"x": 1, "y": None},
     {"x": 1, "y": 1},
@@ -29,19 +15,16 @@ coalesce_data = [
 ]
 
 
+class Coalesce(Aggregation):
+    def __call__(self, expr: pl.Expr) -> pl.Expr:
+        return expr.drop_nulls().first()
+
+
 class CoalesceModel(BaseModel):
     model_config = ConfigDict(group_by="x")
 
     x: int
-    y: Annotated[CoalescedOptionalInt, Coalesce()]
-
-
-class Concatenate(Aggregation):
-    def __init__(self, separator: str = ", ") -> None:
-        self.separator = separator
-
-    def __call__(self, expr: pl.Expr) -> pl.Expr:
-        return expr.drop_nulls().implode().list.join(self.separator)
+    y: Annotated[int | None, Coalesce()]
 
 
 concatenate_data = [
@@ -52,20 +35,19 @@ concatenate_data = [
 ]
 
 
-type ConcatenatedStr = Annotated[
-    str | list[str],
-    """Actually str.
-    list[str] is for triggering the graphty aggregation code path.
-    Note that this is a contrived example and a workaround.
-    """,
-]
+class Concatenate(Aggregation):
+    def __init__(self, separator: str = ", ") -> None:
+        self.separator = separator
+
+    def __call__(self, expr: pl.Expr) -> pl.Expr:
+        return expr.drop_nulls().implode().list.join(self.separator)
 
 
 class ConcatenateModel(BaseModel):
     model_config = ConfigDict(group_by="x")
 
     x: int
-    string: Annotated[ConcatenatedStr, Concatenate()]
+    string: Annotated[str, Concatenate()]
 
 
 params: list[Parameter] = [
