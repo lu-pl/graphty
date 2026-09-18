@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.7.0](https://github.com/lu-pl/graphty/compare/v0.6.0...v0.7.0) (2026-09-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* implement extensible aggregation protocol
+
+### Features
+
+* implement extensible aggregation protocol ([1bd8fed](https://github.com/lu-pl/graphty/commit/1bd8fed0eef739d510ea9405bee6b11549477811))
+
 ## 0.1.0 (2026-09-17)
 
 
