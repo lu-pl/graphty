@@ -1,0 +1,24 @@
+name: commitizen-gitlint
+
+on: [push, pull_request]
+
+jobs:
+  run-commitizen-gitlint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Install dependencies
+        run: uv sync --locked --dev
+
+      - name: Run commitizen check
+        run: uv run cz -n cz_conventional_commits check --rev-range HEAD
