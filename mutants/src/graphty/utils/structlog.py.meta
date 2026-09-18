@@ -1,0 +1,40 @@
+{
+    "exit_code_by_key": {
+        "graphty.utils.structlog.x\u01c1StructuredMessage\u01c1__init____mutmut_1": 0,
+        "graphty.utils.structlog.x\u01c1StructuredMessage\u01c1__init____mutmut_2": 1,
+        "graphty.utils.structlog.x\u01c1StructuredMessage\u01c1__str____mutmut_1": 1,
+        "graphty.utils.structlog.x\u01c1StructuredMessage\u01c1__str____mutmut_2": 1,
+        "graphty.utils.structlog.x\u01c1StructuredMessage\u01c1__str____mutmut_3": 1,
+        "graphty.utils.structlog.x\u01c1StructuredMessage\u01c1__str____mutmut_4": 1,
+        "graphty.utils.structlog.x\u01c1StructuredMessage\u01c1__str____mutmut_5": 1,
+        "graphty.utils.structlog.x\u01c1StructuredMessage\u01c1__str____mutmut_6": 1,
+        "graphty.utils.structlog.x\u01c1StructuredMessage\u01c1__str____mutmut_7": 1
+    },
+    "hash_by_function_name": {
+        "x\u01c1StructuredMessage\u01c1__init__": "dd7f61483874",
+        "x\u01c1StructuredMessage\u01c1__str__": "bbbc615b9392"
+    },
+    "type_check_error_by_key": {},
+    "durations_by_key": {
+        "graphty.utils.structlog.x\u01c1StructuredMessage\u01c1__str____mutmut_2": 0.0,
+        "graphty.utils.structlog.x\u01c1StructuredMessage\u01c1__str____mutmut_3": 0.0,
+        "graphty.utils.structlog.x\u01c1StructuredMessage\u01c1__str____mutmut_1": 0.0,
+        "graphty.utils.structlog.x\u01c1StructuredMessage\u01c1__str____mutmut_7": 0.0,
+        "graphty.utils.structlog.x\u01c1StructuredMessage\u01c1__str____mutmut_5": 0.0,
+        "graphty.utils.structlog.x\u01c1StructuredMessage\u01c1__str____mutmut_4": 0.0,
+        "graphty.utils.structlog.x\u01c1StructuredMessage\u01c1__str____mutmut_6": 0.0,
+        "graphty.utils.structlog.x\u01c1StructuredMessage\u01c1__init____mutmut_2": 0.0,
+        "graphty.utils.structlog.x\u01c1StructuredMessage\u01c1__init____mutmut_1": 0.0
+    },
+    "estimated_durations_by_key": {
+        "graphty.utils.structlog.x\u01c1StructuredMessage\u01c1__str____mutmut_1": 0.01106181900104275,
+        "graphty.utils.structlog.x\u01c1StructuredMessage\u01c1__str____mutmut_2": 0.01106181900104275,
+        "graphty.utils.structlog.x\u01c1StructuredMessage\u01c1__str____mutmut_3": 0.01106181900104275,
+        "graphty.utils.structlog.x\u01c1StructuredMessage\u01c1__str____mutmut_4": 0.01106181900104275,
+        "graphty.utils.structlog.x\u01c1StructuredMessage\u01c1__str____mutmut_5": 0.01106181900104275,
+        "graphty.utils.structlog.x\u01c1StructuredMessage\u01c1__str____mutmut_6": 0.01106181900104275,
+        "graphty.utils.structlog.x\u01c1StructuredMessage\u01c1__str____mutmut_7": 0.01106181900104275,
+        "graphty.utils.structlog.x\u01c1StructuredMessage\u01c1__init____mutmut_1": 0.6187008390152187,
+        "graphty.utils.structlog.x\u01c1StructuredMessage\u01c1__init____mutmut_2": 0.6187008390152187
+    }
+}
