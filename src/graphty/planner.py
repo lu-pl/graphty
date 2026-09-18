@@ -29,6 +29,7 @@ from graphty.utils.type_utils import (
     is_pydantic_model_static_type,
     is_pydantic_model_union_static_type,
 )
+from graphty.utils.types import Opaque
 
 
 class ModelUnionDispatch:
@@ -199,7 +200,7 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
         model_projection: set[str] = model_info.model_projection
 
         if group_by is None:
-            if self.model.model_fields:
+            if self._has_actionable_fields:
                 return self.lazy_frame.with_columns(
                     *self._generate_expressions(model=self.model)
                 ).drop(self._base_cols.difference(model_projection))
@@ -213,10 +214,22 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
     def _base_cols(self) -> set[str]:
         return set(self.lazy_frame.collect_schema().names())
 
+    @property
+    def _has_actionable_fields(self) -> bool:
+        return any(
+            get_metadata(field_info=field_info, cls=Opaque) is None
+            for _, field_info in self.model.model_fields.items()
+        )
+
     def _generate_expressions(
         self, model: type[BaseModel], group_context: bool = False
     ) -> Iterator[pl.Expr]:
         for field_name, field_info in model.model_fields.items():
+            # disengage the planner for Opaque-annotated fields
+            if get_metadata(field_info=field_info, cls=Opaque) is not None:
+                yield pl.struct(self._base_cols).alias(field_name)
+                continue
+
             annotation = cast(TypeForm, field_info.annotation)
             aggregation: Aggregation | None = get_metadata(
                 field_info=field_info, cls=Aggregation
