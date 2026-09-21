@@ -194,6 +194,9 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
         )
 
     def run(self) -> pl.LazyFrame:
+        if not self._base_cols:
+            return self.lazy_frame
+
         model_info: ModelInfo[TModel] = self.model_registry[self.model]
         group_by: str | None = model_info.group_by
         model_projection: set[str] = model_info.model_projection
