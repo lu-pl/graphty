@@ -27,7 +27,10 @@ class Model3(BaseModel):
 
 @pytest.mark.parametrize("model", [Model1, Model2, Model3])
 def test_sad_path_multi_model_union(model):
-    materializer = ModelMaterializer(model=model, data=[])
+    data = [
+        {"some": "data"}
+    ]  # non-empty pseudo data to prevent early exit in LazyFrame.run
+    materializer = ModelMaterializer(model=model, data=data)
 
     with pytest.raises(MissingDiscriminatorError):
         list(materializer.generate_bindings())
