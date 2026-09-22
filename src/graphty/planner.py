@@ -287,7 +287,11 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
                     reduction = aggregation or Reduce()
                     expr = reduction(pl.col(col))
 
-                    yield expr if group_context else expr.over(model_info.group_by)
+                    yield (
+                        expr
+                        if group_context
+                        else expr.over(partition_by=model_info.group_by)
+                    )
 
     def _build_model_struct(self, model: type[BaseModel]) -> pl.Expr:
         exprs = list(self._compile_exprs(model))
