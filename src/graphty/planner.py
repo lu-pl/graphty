@@ -29,6 +29,7 @@ from graphty.utils.type_utils import (
     is_pydantic_model_static_type,
     is_pydantic_model_union_static_type,
 )
+from graphty.utils.types import Opaque
 
 
 class ModelUnionDispatch:
@@ -221,6 +222,15 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
 
         for field_name, field_info in model.model_fields.items():
             if (model_info.alias_map[field_name] == group_by) and group_context:
+                continue
+
+            if get_metadata(field_info=field_info, cls=Opaque) is not None:
+                expr = pl.struct(self._base_cols).alias(field_name)
+                yield (
+                    expr.implode().over(group_by)
+                    if group_by and not group_context
+                    else expr
+                )
                 continue
 
             annotation = cast(TypeForm, field_info.annotation)
