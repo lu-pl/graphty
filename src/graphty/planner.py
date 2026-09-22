@@ -197,8 +197,8 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
         if not self._base_cols:
             return self.lazy_frame
 
-        model_info = self.model_registry[self.model]
-        group_by = model_info.group_by
+        model_info: ModelInfo = self.model_registry[self.model]
+        group_by: str | None = model_info.group_by
 
         if group_by is None:
             if self.model.model_fields:
@@ -216,8 +216,8 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
     def _compile_exprs(
         self, model: type[BaseModel], group_context: bool = False
     ) -> Iterator[pl.Expr]:
-        model_info = self.model_registry[model]
-        group_by = model_info.group_by
+        model_info: ModelInfo = self.model_registry[model]
+        group_by: str | None = model_info.group_by
 
         for field_name, field_info in model.model_fields.items():
             if (model_info.alias_map[field_name] == group_by) and group_context:
@@ -229,12 +229,12 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
             )
 
             if is_pydantic_model_static_type(annotation):
-                expr = self._build_model_struct(annotation).alias(field_name)
-                reduction = aggregation or Reduce()
+                expr: pl.Expr = self._build_model_struct(annotation).alias(field_name)
+                reduction: Aggregation = aggregation or Reduce()
                 yield expr if not group_context else reduction(expr)
 
             elif is_pydantic_model_union_static_type(annotation):
-                expr = (
+                expr: pl.Expr = (
                     ModelUnionDispatch(
                         type_form=cast(
                             TypeForm, get_annotations(model_info.model)[field_name]
@@ -245,16 +245,19 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
                     .compute_model_expr()
                     .alias(field_name)
                 )
-                reduction = aggregation or Reduce()
+                reduction: Aggregation = aggregation or Reduce()
                 yield expr if not group_context else reduction(expr)
 
             elif is_parametrized_list_static_type(annotation):
+                item_annotation: TypeForm
                 (item_annotation,) = get_args(annotation)
 
                 if is_pydantic_model_static_type(item_annotation):
-                    inner = self._build_model_struct(item_annotation).alias(field_name)
+                    inner: pl.Expr = self._build_model_struct(item_annotation).alias(
+                        field_name
+                    )
                 elif is_pydantic_model_union_static_type(item_annotation):
-                    inner = (
+                    inner: pl.Expr = (
                         ModelUnionDispatch(
                             type_form=cast(TypeForm, item_annotation),
                             discriminator=field_info.discriminator,
@@ -264,10 +267,10 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
                         .alias(field_name)
                     )
                 else:
-                    inner = pl.col(model_info.alias_map[field_name])
+                    inner: pl.Expr = pl.col(model_info.alias_map[field_name])
 
-                agg = aggregation or Collect()
-                expr = agg(inner)
+                agg: Aggregation = aggregation or Collect()
+                expr: pl.Expr = agg(inner)
 
                 if model_info.group_by is None:
                     raise MissingGroupByError(model=model_info.model)
@@ -279,13 +282,13 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
                 )
 
             else:
-                col = model_info.alias_map[field_name]
+                col: str = model_info.alias_map[field_name]
 
                 if model_info.group_by is None:
                     yield pl.col(col)
                 else:
-                    reduction = aggregation or Reduce()
-                    expr = reduction(pl.col(col))
+                    reduction: Aggregation = aggregation or Reduce()
+                    expr: pl.Expr = reduction(pl.col(col))
 
                     yield (
                         expr
@@ -294,5 +297,5 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
                     )
 
     def _build_model_struct(self, model: type[BaseModel]) -> pl.Expr:
-        exprs = list(self._compile_exprs(model))
+        exprs: list[pl.Expr] = list(self._compile_exprs(model))
         return pl.struct(exprs if exprs else self._base_cols)
