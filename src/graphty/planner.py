@@ -104,7 +104,7 @@ class ModelUnionDispatch:
                 return [
                     pl.when(pl.col(alias_map[discriminator_value]).is_in(list(k))).then(
                         pl.struct(union_projection).struct.with_fields(
-                            *self.planner._generate_expressions(model=v)
+                            *self.planner._compile_exprs(model=v)
                         )
                     )
                     for k, v in discriminator_mapping.items()
@@ -121,7 +121,7 @@ class ModelUnionDispatch:
                 return [
                     pl.when(discriminator_expression == k).then(
                         pl.struct(union_projection).struct.with_fields(
-                            *self.planner._generate_expressions(model=v)
+                            *self.planner._compile_exprs(model=v)
                         )
                     )
                     for k, v in tag_mapping.items()
@@ -197,66 +197,65 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
         if not self._base_cols:
             return self.lazy_frame
 
-        model_info: ModelInfo[TModel] = self.model_registry[self.model]
-        group_by: str | None = model_info.group_by
-        model_projection: set[str] = model_info.model_projection
+        model_info = self.model_registry[self.model]
+        group_by = model_info.group_by
 
         if group_by is None:
             if self.model.model_fields:
-                return self.lazy_frame.with_columns(
-                    *self._generate_expressions(model=self.model)
-                ).drop(self._base_cols.difference(model_projection))
+                return self.lazy_frame.select(*self._compile_exprs(model=self.model))
             return self.lazy_frame
 
         return self.lazy_frame.group_by(group_by, maintain_order=True).agg(
-            *self._generate_expressions(model=self.model, group_context=True),
+            *self._compile_exprs(model=self.model, group_context=True),
         )
 
     @cached_property
     def _base_cols(self) -> set[str]:
         return set(self.lazy_frame.collect_schema().names())
 
-    def _generate_expressions(
+    def _compile_exprs(
         self, model: type[BaseModel], group_context: bool = False
     ) -> Iterator[pl.Expr]:
+        model_info = self.model_registry[model]
+        group_by = model_info.group_by
+
         for field_name, field_info in model.model_fields.items():
+            if (model_info.alias_map[field_name] == group_by) and group_context:
+                continue
+
             annotation = cast(TypeForm, field_info.annotation)
             aggregation: Aggregation | None = get_metadata(
                 field_info=field_info, cls=Aggregation
             )
 
             if is_pydantic_model_static_type(annotation):
-                expr: pl.Expr = self._build_model_struct(model=annotation).alias(
-                    field_name
-                )
-                reduction: Aggregation = aggregation or Reduce()
+                expr = self._build_model_struct(annotation).alias(field_name)
+                reduction = aggregation or Reduce()
                 yield expr if not group_context else reduction(expr)
 
             elif is_pydantic_model_union_static_type(annotation):
-                expr: pl.Expr = (
+                expr = (
                     ModelUnionDispatch(
-                        # pass full TypeForm for discriminator resolution
-                        type_form=cast(TypeForm, get_annotations(model)[field_name]),
+                        type_form=cast(
+                            TypeForm, get_annotations(model_info.model)[field_name]
+                        ),
                         discriminator=field_info.discriminator,
                         planner=self,
                     )
                     .compute_model_expr()
                     .alias(field_name)
                 )
-                reduction: Aggregation = aggregation or Reduce()
+                reduction = aggregation or Reduce()
                 yield expr if not group_context else reduction(expr)
 
             elif is_parametrized_list_static_type(annotation):
-                item_annotation, *_ = get_args(annotation)
+                (item_annotation,) = get_args(annotation)
 
                 if is_pydantic_model_static_type(item_annotation):
-                    inner: pl.Expr = self._build_model_struct(
-                        model=item_annotation
-                    ).alias(field_name)
+                    inner = self._build_model_struct(item_annotation).alias(field_name)
                 elif is_pydantic_model_union_static_type(item_annotation):
                     inner = (
                         ModelUnionDispatch(
-                            # item_annotation is the full TypeForm required for union resolution
                             type_form=cast(TypeForm, item_annotation),
                             discriminator=field_info.discriminator,
                             planner=self,
@@ -265,44 +264,31 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
                         .alias(field_name)
                     )
                 else:
-                    alias_map = self.model_registry[model].alias_map
-                    inner: pl.Expr = pl.col(alias_map[field_name])
+                    inner = pl.col(model_info.alias_map[field_name])
 
-                agg: Aggregation = aggregation or Collect()
-                expr: pl.Expr = agg(inner)
+                agg = aggregation or Collect()
+                expr = agg(inner)
 
-                partition_value = self.model_registry[model].group_by
-                if partition_value is None:
-                    raise MissingGroupByError(model=model)
+                if model_info.group_by is None:
+                    raise MissingGroupByError(model=model_info.model)
 
                 yield (
                     expr
                     if group_context
-                    else expr.implode().over(partition_by=partition_value)
+                    else expr.implode().over(partition_by=model_info.group_by)
                 )
 
             else:
-                group_by: str | None = self.model_registry[model].group_by
+                col = model_info.alias_map[field_name]
 
-                if group_by is not None:
-                    col = self.model_registry[model].alias_map[field_name]
+                if model_info.group_by is None:
+                    yield pl.col(col)
+                else:
+                    reduction = aggregation or Reduce()
+                    expr = reduction(pl.col(col))
 
-                    if col != group_by:
-                        reduction: Aggregation = aggregation or Reduce()
-                        expr: pl.Expr = reduction(pl.col(col))
-                        yield expr if group_context else expr.over(group_by)
+                    yield expr if group_context else expr.over(model_info.group_by)
 
     def _build_model_struct(self, model: type[BaseModel]) -> pl.Expr:
-        model_info: ModelInfo = self.model_registry[model]
-        group_by = model_info.group_by
-
-        col_exprs: list[pl.Expr] = (
-            [pl.col(member) for member in model_info.model_projection]
-            if group_by is None
-            else [pl.col(group_by)]
-        )
-        exprs: list[pl.Expr] = [
-            *col_exprs,
-            *self._generate_expressions(model=model, group_context=False),
-        ]
-        return pl.struct(exprs or self._base_cols)
+        exprs = list(self._compile_exprs(model))
+        return pl.struct(exprs if exprs else self._base_cols)
