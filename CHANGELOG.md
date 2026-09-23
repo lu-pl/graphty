@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.7.0](https://github.com/lu-pl/graphty/compare/v0.6.0...v0.7.0) (2026-09-23)
+
+
+### ⚠ BREAKING CHANGES
+
+* implement extensible aggregation protocol
+
+### Features
+
+* **exceptions:** capture exception args as instance attributes ([9b75b96](https://github.com/lu-pl/graphty/commit/9b75b963e105481a187daf0a8bd392c493efa16e))
+* implement extensible aggregation protocol ([1bd8fed](https://github.com/lu-pl/graphty/commit/1bd8fed0eef739d510ea9405bee6b11549477811))
+* implement planner disengagement for Opaque-annotated fields ([23c2a12](https://github.com/lu-pl/graphty/commit/23c2a12c7f73800e434b178b33c5999a5e8326c0))
+
+
+### Bug Fixes
+
+* **planner:** handle empty data in LazyFramePlanner correctly ([9894be1](https://github.com/lu-pl/graphty/commit/9894be19e58c1f8176b9544554840fb3165b0ca0))
+
+
+### Documentation
+
+* **types:** add type annotations to LazyFramePlanner ([345a942](https://github.com/lu-pl/graphty/commit/345a942d5f328d2930324245ffb4bfd97f3ab618))
+
 ## 0.1.0 (2026-09-17)
 
 
