@@ -13,6 +13,7 @@ from typing import (
 import polars as pl
 from pydantic import BaseModel, Discriminator, Tag
 from pydantic.fields import FieldInfo
+from pydantic_core import PydanticUndefined
 from typing_extensions import TypeForm, get_annotations
 
 from graphty.utils.aggregation import Aggregation, Collect, Reduce
@@ -277,7 +278,8 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
                         .alias(field_name)
                     )
                 else:
-                    inner: pl.Expr = pl.col(model_info.alias_map[field_name])
+                    dealiased_field_name: str = model_info.alias_map[field_name]
+                    inner: pl.Expr = pl.col(dealiased_field_name)
 
                 agg: Aggregation = aggregation or Collect()
                 expr: pl.Expr = agg(inner)
@@ -292,19 +294,33 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
                 )
 
             else:
-                col: str = model_info.alias_map[field_name]
+                dealiased_field_name: str = model_info.alias_map[field_name]
+                cols: Iterator[pl.Expr] = self._scalar_col_or_default(
+                    dealiased_field_name=dealiased_field_name,
+                    field_info=field_info,
+                )
 
                 if model_info.group_by is None:
-                    yield pl.col(col)
+                    yield from cols
+
                 else:
                     reduction: Aggregation = aggregation or Reduce()
-                    expr: pl.Expr = reduction(pl.col(col))
-
-                    yield (
+                    yield from (
                         expr
                         if group_context
                         else expr.over(partition_by=model_info.group_by)
+                        for expr in map(reduction, cols)
                     )
+
+    def _scalar_col_or_default(
+        self, dealiased_field_name: str, field_info: FieldInfo
+    ) -> Iterator[pl.Expr]:
+        if dealiased_field_name in self._base_cols:
+            yield pl.col(dealiased_field_name)
+        elif (default := field_info.default) is not PydanticUndefined:
+            yield pl.repeat(default, n=pl.len()).alias(dealiased_field_name)
+        else:
+            return
 
     def _build_model_struct(self, model: type[BaseModel]) -> pl.Expr:
         exprs: list[pl.Expr] = list(self._compile_exprs(model))
