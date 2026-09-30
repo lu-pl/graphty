@@ -13,6 +13,7 @@ from typing import (
 import polars as pl
 from pydantic import BaseModel, Discriminator, Tag
 from pydantic.fields import FieldInfo
+from pydantic_core import PydanticUndefined
 from typing_extensions import TypeForm, get_annotations
 
 from graphty.utils.aggregation import Aggregation, Collect, Reduce
@@ -292,19 +293,34 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
                 )
 
             else:
-                col: str = model_info.alias_map[field_name]
+                cols: Iterator[pl.Expr] = self.scalar_col_or_default(
+                    col_name=model_info.alias_map[field_name],
+                    field_name=field_name,
+                    field_info=field_info,
+                )
 
                 if model_info.group_by is None:
-                    yield pl.col(col)
+                    yield from cols
+
                 else:
                     reduction: Aggregation = aggregation or Reduce()
-                    expr: pl.Expr = reduction(pl.col(col))
-
-                    yield (
+                    yield from (
                         expr
                         if group_context
                         else expr.over(partition_by=model_info.group_by)
+                        for expr in map(reduction, cols)
                     )
+
+    def scalar_col_or_default(
+        self, col_name: str, field_name: str, field_info: FieldInfo
+    ) -> Iterator[pl.Expr]:
+        if col_name in self._base_cols:
+            yield pl.col(col_name)
+
+        elif (default := field_info.default) is not PydanticUndefined:
+            yield pl.repeat(default, n=pl.len()).alias(field_name)
+        else:
+            return
 
     def _build_model_struct(self, model: type[BaseModel]) -> pl.Expr:
         exprs: list[pl.Expr] = list(self._compile_exprs(model))
