@@ -277,7 +277,8 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
                         .alias(field_name)
                     )
                 else:
-                    inner: pl.Expr = pl.col(model_info.alias_map[field_name])
+                    dealiased_field_name: str = model_info.alias_map[field_name]
+                    inner: pl.Expr = pl.col(dealiased_field_name)
 
                 agg: Aggregation = aggregation or Collect()
                 expr: pl.Expr = agg(inner)
@@ -292,13 +293,13 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
                 )
 
             else:
-                col: str = model_info.alias_map[field_name]
+                dealiased_field_name: str = model_info.alias_map[field_name]
 
                 if model_info.group_by is None:
-                    yield pl.col(col)
+                    yield pl.col(dealiased_field_name)
                 else:
                     reduction: Aggregation = aggregation or Reduce()
-                    expr: pl.Expr = reduction(pl.col(col))
+                    expr: pl.Expr = reduction(pl.col(dealiased_field_name))
 
                     yield (
                         expr
