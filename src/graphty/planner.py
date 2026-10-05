@@ -202,9 +202,8 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
         group_by: str | None = model_info.group_by
 
         if group_by is None:
-            if self.model.model_fields:
-                return self.lazy_frame.select(*self._compile_exprs(model=self.model))
-            return self.lazy_frame
+            exprs: list[pl.Expr] = list(self._compile_exprs(model=self.model))
+            return self.lazy_frame.select(*exprs) if exprs else self.lazy_frame
 
         return self.lazy_frame.group_by(group_by, maintain_order=True).agg(
             *self._compile_exprs(model=self.model, group_context=True),
@@ -294,6 +293,9 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
 
             else:
                 dealiased_field_name: str = model_info.alias_map[field_name]
+
+                if dealiased_field_name not in self._base_cols:
+                    continue
 
                 if model_info.group_by is None:
                     yield pl.col(dealiased_field_name)
