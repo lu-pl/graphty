@@ -1,4 +1,6 @@
+from collections.abc import Iterable
 from dataclasses import dataclass
+from re import Pattern
 
 
 @dataclass
@@ -12,6 +14,12 @@ class Expected:
 
 
 @dataclass
+class ExpectedException:
+    exception: Exception
+    match: str | Pattern | None = None
+
+
+@dataclass
 class Parameter:
     kwargs: dict[str, object]
-    expected: Expected
+    expected: Expected | ExpectedException | Iterable[Expected | ExpectedException]
