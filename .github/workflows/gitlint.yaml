@@ -18,7 +18,7 @@ jobs:
           cache-dependency-glob: "uv.lock"
 
       - name: Install dependencies
-        run: uv sync --locked --dev
+        run: uv sync --dev
 
       - name: Run commitizen check
         run: uv run cz -n cz_conventional_commits check --rev-range HEAD
