@@ -28,11 +28,12 @@ class ModelMaterializer[TModel: BaseModel]:
 
     def generate_models(self) -> Iterator[TModel]:
         for binding in self.generate_bindings():
-            logger.debug(
-                StructuredMessage(
-                    message="Instantiating model.",
-                    model=self._model,
-                    binding=binding,
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(
+                    StructuredMessage(
+                        message="Instantiating model.",
+                        model=self._model,
+                        binding=binding,
+                    )
                 )
-            )
             yield self._model.model_validate(binding)
