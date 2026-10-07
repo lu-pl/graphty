@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/lu-pl/graphty/compare/v0.7.0...v0.7.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* disengage planner for non-matching fields and empty exprs ([da78109](https://github.com/lu-pl/graphty/commit/da7810973066358ff280db1eda9a2363328590c0))
+
 ## [0.7.0](https://github.com/lu-pl/graphty/compare/v0.6.0...v0.7.0) (2026-09-23)
 
 
