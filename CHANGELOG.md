@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.8.0](https://github.com/lu-pl/graphty/compare/v0.7.1...v0.8.0) (2026-10-08)
+
+
+### Features
+
+* **materializer:** expose pipeline steps and remove caching ([3fb4053](https://github.com/lu-pl/graphty/commit/3fb405330d594c7fd687a0604058368708a1c487))
+
+
+### Bug Fixes
+
+* **logging:** guard materializer logging when debug is disabled ([e93dae3](https://github.com/lu-pl/graphty/commit/e93dae3c60336c430418acc180da3c3691e14178))
+
 ## [0.7.1](https://github.com/lu-pl/graphty/compare/v0.7.0...v0.7.1) (2026-10-07)
 
 
