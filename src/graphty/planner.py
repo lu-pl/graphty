@@ -258,6 +258,9 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
                 yield expr if not group_context else reduction(expr)
 
             elif is_parametrized_list_static_type(annotation):
+                if model_info.group_by is None:
+                    raise MissingGroupByError(model=model_info.model)
+
                 item_annotation: TypeForm
                 (item_annotation,) = get_args(annotation)
 
@@ -277,13 +280,13 @@ class LazyFramePlanner[TModel: type[BaseModel]]:
                     )
                 else:
                     dealiased_field_name: str = model_info.alias_map[field_name]
+                    if dealiased_field_name not in self._base_cols:
+                        continue
+
                     inner: pl.Expr = pl.col(dealiased_field_name)
 
                 agg: Aggregation = aggregation or Collect()
                 expr: pl.Expr = agg(inner)
-
-                if model_info.group_by is None:
-                    raise MissingGroupByError(model=model_info.model)
 
                 yield (
                     expr
