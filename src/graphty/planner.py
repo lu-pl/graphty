@@ -78,13 +78,17 @@ class ModelUnionDispatch:
         if not self.model_members:
             return []
 
-        union_projection: set[str] = reduce(
-            set.union,
-            [
-                self.planner.model_registry[member].model_projection
-                for member in self.model_members
-            ],
-        )
+        # Fields without a column in the data are forwarded to Pydantic (defaults/required);
+        # an empty projection falls back to all base columns, mirroring _build_model_struct.
+        union_projection: set[str] = (
+            reduce(
+                set.union,
+                [
+                    self.planner.model_registry[member].model_projection
+                    for member in self.model_members
+                ],
+            ).intersection(self.planner._base_cols)
+        ) or self.planner._base_cols
 
         discriminator: Discriminator = self._resolve_discriminator()
         discriminator_value: str | Callable = discriminator.discriminator
