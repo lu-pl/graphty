@@ -84,7 +84,7 @@ class ModelUnionDispatch:
                 self.planner.model_registry[member].model_projection
                 for member in self.model_members
             ],
-        )
+        ).intersection(self.planner._base_cols)
 
         discriminator: Discriminator = self._resolve_discriminator()
         discriminator_value: str | Callable = discriminator.discriminator
