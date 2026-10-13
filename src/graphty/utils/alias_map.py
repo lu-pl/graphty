@@ -1,7 +1,6 @@
 from collections import UserDict
 from collections.abc import Callable, Iterator
 
-from graphty.utils.exceptions import AliasResolutionError
 from pydantic import AliasChoices, BaseModel
 from pydantic.fields import FieldInfo
 
@@ -54,16 +53,8 @@ class AliasMap(UserDict):
                     alias: str | None = next(
                         (i for i in aliases if i in self.projection), None
                     )
+                    yield (k, k) if alias is None else (k, alias)
 
-                    if alias is None:
-                        raise AliasResolutionError(
-                            field_name=k,
-                            model=self.model,
-                            aliases=aliases,
-                            projection=self.projection,
-                        )
-
-                    yield (k, alias)
                 case _:  # pragma: no cover; unreachable
                     assert False, "This should never happen."
 
