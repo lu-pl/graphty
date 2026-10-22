@@ -30,3 +30,6 @@ dev = [
 addopts = [
     "--import-mode=importlib",
 ]
+
+[tool.inline-snapshot]
+format-command = "ruff format --stdin-filename {filename}"
