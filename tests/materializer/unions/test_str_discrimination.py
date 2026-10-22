@@ -10,12 +10,13 @@ Covers:
 - Discrimnated union model aggregation (top-level + nested union aggregation)
 """
 
+from dataclasses import dataclass
 from typing import Annotated, Literal, Union
 
 import pytest
 from graphty import ConfigDict, ModelMaterializer
+from inline_snapshot import snapshot
 from pydantic import BaseModel, Field
-from tests.materializer.param import Expected, Parameter
 
 
 class Cat(BaseModel):
@@ -79,34 +80,49 @@ aggregation_data = [
     {"pet_type": "reptile", "n": 4},
 ]
 
-EXPECTED_BINDINGS = [
-    {"n": 1, "pet": {"pet_type": "cat"}},
-    {"n": 2, "pet": {"pet_type": "dog"}},
-    {"n": 3, "pet": {"pet_type": "lizard"}},
-    {"n": 4, "pet": {"pet_type": "reptile"}},
-]
+
+@dataclass
+class Parameter:
+    model: object
+    data: object
+    bindings: object
+    model_dump: object
+
+
+shared_bindings = snapshot(
+    [
+        {"pet": {"pet_type": "cat"}, "n": 1},
+        {"pet": {"pet_type": "dog"}, "n": 2},
+        {"pet": {"pet_type": "lizard"}, "n": 3},
+        {"pet": {"pet_type": "reptile"}, "n": 4},
+    ]
+)
 
 params: list[Parameter] = [
     Parameter(
-        kwargs={"model": Model1, "data": data},
-        expected=Expected(bindings=EXPECTED_BINDINGS),
+        model=Model1, data=data, bindings=shared_bindings, model_dump=shared_bindings
     ),
     Parameter(
-        kwargs={"model": Model2, "data": data},
-        expected=Expected(bindings=EXPECTED_BINDINGS),
+        model=Model2, data=data, bindings=shared_bindings, model_dump=shared_bindings
     ),
     Parameter(
-        kwargs={"model": Model3, "data": data},
-        expected=Expected(bindings=EXPECTED_BINDINGS),
+        model=Model3, data=data, bindings=shared_bindings, model_dump=shared_bindings
     ),
     Parameter(
-        kwargs={"model": Model4, "data": data},
-        expected=Expected(bindings=EXPECTED_BINDINGS),
+        model=Model4, data=data, bindings=shared_bindings, model_dump=shared_bindings
     ),
     Parameter(
-        kwargs={"model": Model5, "data": aggregation_data},
-        expected=Expected(
-            bindings=[
+        model=Model5,
+        data=aggregation_data,
+        bindings=snapshot(
+            [
+                {"n": 1, "pet": [{"pet_type": "cat"}, {"pet_type": "dog"}]},
+                {"n": 3, "pet": [{"pet_type": "lizard"}]},
+                {"n": 4, "pet": [{"pet_type": "reptile"}]},
+            ]
+        ),
+        model_dump=snapshot(
+            [
                 {"n": 1, "pet": [{"pet_type": "cat"}, {"pet_type": "dog"}]},
                 {"n": 3, "pet": [{"pet_type": "lizard"}]},
                 {"n": 4, "pet": [{"pet_type": "reptile"}]},
@@ -114,9 +130,23 @@ params: list[Parameter] = [
         ),
     ),
     Parameter(
-        kwargs={"model": Model6, "data": aggregation_data},
-        expected=Expected(
-            bindings=[
+        model=Model6,
+        data=aggregation_data,
+        bindings=snapshot(
+            [
+                {
+                    "n": 1,
+                    "nested": {
+                        "n": 1,
+                        "pet": [{"pet_type": "cat"}, {"pet_type": "dog"}],
+                    },
+                },
+                {"n": 3, "nested": {"n": 3, "pet": [{"pet_type": "lizard"}]}},
+                {"n": 4, "nested": {"n": 4, "pet": [{"pet_type": "reptile"}]}},
+            ]
+        ),
+        model_dump=snapshot(
+            [
                 {
                     "n": 1,
                     "nested": {
@@ -134,11 +164,9 @@ params: list[Parameter] = [
 
 @pytest.mark.parametrize("param", params)
 def test_str_discriminated_union(param):
-    materializer = ModelMaterializer(**param.kwargs)
-    assert list(materializer.generate_bindings()) == param.expected.bindings
-    assert [
-        m.model_dump() for m in materializer.generate_models()
-    ] == param.expected.model_dump
+    materializer = ModelMaterializer(model=param.model, data=param.data)
+    assert list(materializer.generate_bindings()) == param.bindings
+    assert [m.model_dump() for m in materializer.generate_models()] == param.model_dump
 
 
 def test_str_discriminated_union_model_types():

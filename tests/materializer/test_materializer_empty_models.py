@@ -1,7 +1,9 @@
+from dataclasses import dataclass
+
 import pytest
 from graphty import ConfigDict, ModelMaterializer
+from inline_snapshot import snapshot
 from pydantic import BaseModel
-from tests.materializer.param import Expected, Parameter
 
 
 class Model1(BaseModel):
@@ -89,99 +91,121 @@ data = [
     {"x": 2, "y": 4, "z": 5},
 ]
 
+
+@dataclass
+class Parameter:
+    model: object
+    data: object
+    bindings: object
+    model_dump: object
+
+
 params: list[Parameter] = [
     Parameter(
-        kwargs={"model": Model1, "data": data},
-        expected=Expected(
-            bindings=[
+        model=Model1,
+        data=data,
+        bindings=snapshot(
+            [
                 {"x": 1, "y": 2, "z": 3},
                 {"x": 1, "y": 3, "z": 4},
                 {"x": 2, "y": 4, "z": 5},
-            ],
-            model_dump=[{}, {}, {}],
+            ]
         ),
+        model_dump=snapshot([{}, {}, {}]),
     ),
     Parameter(
-        kwargs={"model": Model2, "data": data},
-        expected=Expected(
-            bindings=[
+        model=Model2,
+        data=data,
+        bindings=snapshot(
+            [
                 {"nested": {"y": 2, "x": 1, "z": 3}},
                 {"nested": {"y": 3, "x": 1, "z": 4}},
                 {"nested": {"y": 4, "x": 2, "z": 5}},
-            ],
-            model_dump=[{"nested": {}}, {"nested": {}}, {"nested": {}}],
+            ]
         ),
+        model_dump=snapshot([{"nested": {}}, {"nested": {}}, {"nested": {}}]),
     ),
     Parameter(
-        kwargs={"model": Model3, "data": data},
-        expected=Expected(
-            bindings=[
+        model=Model3,
+        data=data,
+        bindings=snapshot(
+            [
                 {"nested": {"nested": {"y": 2, "x": 1, "z": 3}}},
                 {"nested": {"nested": {"y": 3, "x": 1, "z": 4}}},
                 {"nested": {"nested": {"y": 4, "x": 2, "z": 5}}},
-            ],
-            model_dump=[
+            ]
+        ),
+        model_dump=snapshot(
+            [
                 {"nested": {"nested": {}}},
                 {"nested": {"nested": {}}},
                 {"nested": {"nested": {}}},
-            ],
+            ]
         ),
     ),
     Parameter(
-        kwargs={"model": Model4, "data": data},
-        expected=Expected(
-            bindings=[
+        model=Model4,
+        data=data,
+        bindings=snapshot(
+            [
                 {"x": 1, "nested": {"y": 2, "x": 1, "z": 3}},
                 {"x": 2, "nested": {"y": 4, "x": 2, "z": 5}},
-            ],
-            model_dump=[{"x": 1, "nested": {}}, {"x": 2, "nested": {}}],
+            ]
         ),
+        model_dump=snapshot([{"x": 1, "nested": {}}, {"x": 2, "nested": {}}]),
     ),
     Parameter(
-        kwargs={"model": Model5, "data": data},
-        expected=Expected(
-            bindings=[
+        model=Model5,
+        data=data,
+        bindings=snapshot(
+            [
                 {"x": 1, "nested": {"nested": {"y": 2, "x": 1, "z": 3}}},
                 {"x": 2, "nested": {"nested": {"y": 4, "x": 2, "z": 5}}},
-            ],
-            model_dump=[
-                {"x": 1, "nested": {"nested": {}}},
-                {"x": 2, "nested": {"nested": {}}},
-            ],
+            ]
+        ),
+        model_dump=snapshot(
+            [{"x": 1, "nested": {"nested": {}}}, {"x": 2, "nested": {"nested": {}}}]
         ),
     ),
     Parameter(
-        kwargs={"model": Model6, "data": data},
-        expected=Expected(
-            bindings=[
+        model=Model6,
+        data=data,
+        bindings=snapshot(
+            [
                 {"x": 1, "nested": {"nested": {"nested": {"y": 2, "x": 1, "z": 3}}}},
                 {"x": 2, "nested": {"nested": {"nested": {"y": 4, "x": 2, "z": 5}}}},
-            ],
-            model_dump=[
+            ]
+        ),
+        model_dump=snapshot(
+            [
                 {"x": 1, "nested": {"nested": {"nested": {}}}},
                 {"x": 2, "nested": {"nested": {"nested": {}}}},
-            ],
+            ]
         ),
     ),
     Parameter(
-        kwargs={"model": Model7, "data": data},
-        expected=Expected(
-            bindings=[
+        model=Model7,
+        data=data,
+        bindings=snapshot(
+            [
                 {"nested": {"x": 1, "nested": {"y": 2, "x": 1, "z": 3}}},
                 {"nested": {"x": 1, "nested": {"y": 3, "x": 1, "z": 4}}},
                 {"nested": {"x": 2, "nested": {"y": 4, "x": 2, "z": 5}}},
-            ],
-            model_dump=[
+            ]
+        ),
+        model_dump=snapshot(
+            [
                 {"nested": {"x": 1, "nested": {}}},
                 {"nested": {"x": 1, "nested": {}}},
                 {"nested": {"x": 2, "nested": {}}},
-            ],
+            ]
         ),
     ),
     Parameter(
-        kwargs={"model": Model9, "data": data},
-        expected=Expected(
-            bindings=[
+        model=Model9,
+        data=data,
+        bindings=snapshot(
+            [
                 {
                     "x": 1,
                     "nested": [
@@ -190,20 +214,23 @@ params: list[Parameter] = [
                     ],
                 },
                 {"x": 2, "nested": [{"y": 4, "nested": [{"y": 4, "x": 2, "z": 5}]}]},
-            ],
-            model_dump=[
+            ]
+        ),
+        model_dump=snapshot(
+            [
                 {
                     "x": 1,
                     "nested": [{"y": 2, "nested": [{}]}, {"y": 3, "nested": [{}]}],
                 },
                 {"x": 2, "nested": [{"y": 4, "nested": [{}]}]},
-            ],
+            ]
         ),
     ),
     Parameter(
-        kwargs={"model": Model10, "data": data},
-        expected=Expected(
-            bindings=[
+        model=Model10,
+        data=data,
+        bindings=snapshot(
+            [
                 {
                     "x": 1,
                     "nested": [
@@ -212,11 +239,13 @@ params: list[Parameter] = [
                     ],
                 },
                 {"x": 2, "nested": [{"x": 2, "nested": {"y": 4, "x": 2, "z": 5}}]},
-            ],
-            model_dump=[
+            ]
+        ),
+        model_dump=snapshot(
+            [
                 {"x": 1, "nested": [{"x": 1, "nested": {}}, {"x": 1, "nested": {}}]},
                 {"x": 2, "nested": [{"x": 2, "nested": {}}]},
-            ],
+            ]
         ),
     ),
 ]
@@ -225,10 +254,10 @@ params: list[Parameter] = [
 @pytest.mark.parametrize("param", params)
 def test_materalizer_empty_models(param):
 
-    materializer = ModelMaterializer(**param.kwargs)
+    materializer = ModelMaterializer(model=param.model, data=param.data)
 
     bindings = list(materializer.generate_bindings())
     model_dump = [model.model_dump() for model in materializer.generate_models()]
 
-    assert bindings == param.expected.bindings
-    assert model_dump == param.expected.model_dump
+    assert bindings == param.bindings
+    assert model_dump == param.model_dump

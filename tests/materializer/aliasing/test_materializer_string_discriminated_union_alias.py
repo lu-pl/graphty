@@ -1,9 +1,10 @@
+from dataclasses import dataclass
 from typing import Annotated, Literal
 
 import pytest
 from graphty import ConfigDict, ModelMaterializer
+from inline_snapshot import snapshot
 from pydantic import BaseModel, Field
-from tests.materializer.param import Expected, Parameter
 
 data = [
     {"pet_type": "cat", "n": 1},
@@ -48,56 +49,73 @@ class Model3(BaseModel):
     agg: list[Model1]
 
 
+@dataclass
+class Parameter:
+    model: object
+    data: object
+    bindings: object
+    model_dump: object
+
+
 params: list[Parameter] = [
     Parameter(
-        kwargs={"model": Model1, "data": data},
-        expected=Expected(
-            bindings=[
-                {"n": 1, "pet": {"pet_type": "cat"}},
-                {"n": 2, "pet": {"pet_type": "dog"}},
-                {"n": 3, "pet": {"pet_type": "lizard"}},
-                {"n": 4, "pet": {"pet_type": "reptile"}},
-            ],
-            model_dump=[
+        model=Model1,
+        data=data,
+        bindings=snapshot(
+            [
+                {"pet": {"pet_type": "cat"}, "n": 1},
+                {"pet": {"pet_type": "dog"}, "n": 2},
+                {"pet": {"pet_type": "lizard"}, "n": 3},
+                {"pet": {"pet_type": "reptile"}, "n": 4},
+            ]
+        ),
+        model_dump=snapshot(
+            [
                 {"pet": {"kind": "cat"}, "n": 1},
                 {"pet": {"kind": "dog"}, "n": 2},
                 {"pet": {"kind": "lizard"}, "n": 3},
                 {"pet": {"kind": "reptile"}, "n": 4},
-            ],
+            ]
         ),
     ),
     Parameter(
-        kwargs={"model": Model2, "data": data},
-        expected=Expected(
-            bindings=[
-                {"nested": {"n": 1, "pet": {"pet_type": "cat"}}},
-                {"nested": {"n": 2, "pet": {"pet_type": "dog"}}},
-                {"nested": {"n": 3, "pet": {"pet_type": "lizard"}}},
-                {"nested": {"n": 4, "pet": {"pet_type": "reptile"}}},
-            ],
-            model_dump=[
+        model=Model2,
+        data=data,
+        bindings=snapshot(
+            [
+                {"nested": {"pet": {"pet_type": "cat"}, "n": 1}},
+                {"nested": {"pet": {"pet_type": "dog"}, "n": 2}},
+                {"nested": {"pet": {"pet_type": "lizard"}, "n": 3}},
+                {"nested": {"pet": {"pet_type": "reptile"}, "n": 4}},
+            ]
+        ),
+        model_dump=snapshot(
+            [
                 {"nested": {"pet": {"kind": "cat"}, "n": 1}},
                 {"nested": {"pet": {"kind": "dog"}, "n": 2}},
                 {"nested": {"pet": {"kind": "lizard"}, "n": 3}},
                 {"nested": {"pet": {"kind": "reptile"}, "n": 4}},
-            ],
+            ]
         ),
     ),
     Parameter(
-        kwargs={"model": Model3, "data": data_n_group},
-        expected=Expected(
-            bindings=[
+        model=Model3,
+        data=data_n_group,
+        bindings=snapshot(
+            [
                 {
                     "n": 1,
                     "agg": [
-                        {"n": 1, "pet": {"pet_type": "cat"}},
-                        {"n": 1, "pet": {"pet_type": "dog"}},
+                        {"pet": {"pet_type": "cat"}, "n": 1},
+                        {"pet": {"pet_type": "dog"}, "n": 1},
                     ],
                 },
-                {"n": 3, "agg": [{"n": 3, "pet": {"pet_type": "lizard"}}]},
-                {"n": 4, "agg": [{"n": 4, "pet": {"pet_type": "reptile"}}]},
-            ],
-            model_dump=[
+                {"n": 3, "agg": [{"pet": {"pet_type": "lizard"}, "n": 3}]},
+                {"n": 4, "agg": [{"pet": {"pet_type": "reptile"}, "n": 4}]},
+            ]
+        ),
+        model_dump=snapshot(
+            [
                 {
                     "n": 1,
                     "agg": [
@@ -107,7 +125,7 @@ params: list[Parameter] = [
                 },
                 {"n": 3, "agg": [{"pet": {"kind": "lizard"}, "n": 3}]},
                 {"n": 4, "agg": [{"pet": {"kind": "reptile"}, "n": 4}]},
-            ],
+            ]
         ),
     ),
 ]
@@ -116,10 +134,10 @@ params: list[Parameter] = [
 @pytest.mark.parametrize("param", params)
 def test_materalizer_string_discriminated_union(param):
 
-    materializer = ModelMaterializer(**param.kwargs)
+    materializer = ModelMaterializer(model=param.model, data=param.data)
 
     bindings = list(materializer.generate_bindings())
     model_dump = [model.model_dump() for model in materializer.generate_models()]
 
-    assert bindings == param.expected.bindings
-    assert model_dump == param.expected.model_dump
+    assert bindings == param.bindings
+    assert model_dump == param.model_dump

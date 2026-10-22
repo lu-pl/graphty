@@ -1,7 +1,9 @@
+from dataclasses import dataclass
+
 import pytest
 from graphty import ConfigDict, ModelMaterializer
+from inline_snapshot import snapshot
 from pydantic import BaseModel, Field, ValidationError
-from tests.materializer.param import Expected, ExpectedException, Parameter
 
 
 class Model1(BaseModel):
@@ -45,116 +47,116 @@ data = [
 ]
 
 
+@dataclass
+class Parameter:
+    model: object
+    data: object
+    bindings: object
+    exception_message: object
+
+
 params: list[Parameter] = [
     Parameter(
-        kwargs={"model": Model1, "data": data},
-        expected=[
-            Expected(bindings=[{"x": 1}, {"x": 2}, {"x": 3}]),
-            ExpectedException(
-                exception=ValidationError, match="1 validation error for Model1\ndne"
-            ),
-        ],
+        model=Model1,
+        data=data,
+        bindings=snapshot([{"x": 1}, {"x": 2}, {"x": 3}]),
+        exception_message=snapshot("""\
+1 validation error for Model1
+dne
+  Field required [type=missing, input_value={'x': 1}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing\
+"""),
     ),
     Parameter(
-        kwargs={"model": Model2, "data": data},
-        expected=[
-            Expected(
-                bindings=[
-                    {"nested": {"x": 1}},
-                    {"nested": {"x": 2}},
-                    {"nested": {"x": 3}},
-                ]
-            ),
-            ExpectedException(
-                exception=ValidationError,
-                match="1 validation error for Model2\nnested.dne",
-            ),
-        ],
+        model=Model2,
+        data=data,
+        bindings=snapshot(
+            [{"nested": {"x": 1}}, {"nested": {"x": 2}}, {"nested": {"x": 3}}]
+        ),
+        exception_message=snapshot("""\
+1 validation error for Model2
+nested.dne
+  Field required [type=missing, input_value={'x': 1}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing\
+"""),
     ),
     Parameter(
-        kwargs={"model": Model3, "data": data},
-        expected=[
-            Expected(bindings=[{"x": 1}, {"x": 2}, {"x": 3}]),
-            ExpectedException(
-                exception=ValidationError,
-                match="1 validation error for Model3\ndne",
-            ),
-        ],
+        model=Model3,
+        data=data,
+        bindings=snapshot([{"x": 1}, {"x": 2}, {"x": 3}]),
+        exception_message=snapshot("""\
+1 validation error for Model3
+dne
+  Field required [type=missing, input_value={'x': 1}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing\
+"""),
     ),
     Parameter(
-        kwargs={"model": Model4, "data": data},
-        expected=[
-            Expected(
-                bindings=[
-                    {"nested": {"x": 1}},
-                    {"nested": {"x": 2}},
-                    {"nested": {"x": 3}},
-                ]
-            ),
-            ExpectedException(
-                exception=ValidationError,
-                match="1 validation error for Model4\nnested.dne",
-            ),
-        ],
+        model=Model4,
+        data=data,
+        bindings=snapshot(
+            [{"nested": {"x": 1}}, {"nested": {"x": 2}}, {"nested": {"x": 3}}]
+        ),
+        exception_message=snapshot("""\
+1 validation error for Model4
+nested.dne
+  Field required [type=missing, input_value={'x': 1}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing\
+"""),
     ),
     Parameter(
-        kwargs={"model": Model5, "data": data},
-        expected=[
-            Expected(
-                bindings=[
-                    {"x": 1, "nested": {"x": 1}},
-                    {"x": 2, "nested": {"x": 2}},
-                    {"x": 3, "nested": {"x": 3}},
-                ]
-            ),
-            ExpectedException(
-                exception=ValidationError,
-                match="1 validation error for Model5\nnested.dne",
-            ),
-        ],
+        model=Model5,
+        data=data,
+        bindings=snapshot(
+            [
+                {"x": 1, "nested": {"x": 1}},
+                {"x": 2, "nested": {"x": 2}},
+                {"x": 3, "nested": {"x": 3}},
+            ]
+        ),
+        exception_message=snapshot("""\
+1 validation error for Model5
+nested.dne
+  Field required [type=missing, input_value={'x': 1}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing\
+"""),
     ),
     Parameter(
-        kwargs={"model": Model6, "data": data},
-        expected=[
-            Expected(bindings=[{"x": 1}, {"x": 2}, {"x": 3}]),
-            ExpectedException(
-                exception=ValidationError,
-                match="1 validation error for Model6\nALIAS",
-            ),
-        ],
+        model=Model6,
+        data=data,
+        bindings=snapshot([{"x": 1}, {"x": 2}, {"x": 3}]),
+        exception_message=snapshot("""\
+1 validation error for Model6
+ALIAS
+  Field required [type=missing, input_value={'x': 1}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing\
+"""),
     ),
     Parameter(
-        kwargs={"model": Model7, "data": data},
-        expected=[
-            Expected(
-                bindings=[
-                    {"nested": {"x": 1}},
-                    {"nested": {"x": 2}},
-                    {"nested": {"x": 3}},
-                ]
-            ),
-            ExpectedException(
-                exception=ValidationError,
-                match="1 validation error for Model7\nnested.ALIAS",
-            ),
-        ],
+        model=Model7,
+        data=data,
+        bindings=snapshot(
+            [{"nested": {"x": 1}}, {"nested": {"x": 2}}, {"nested": {"x": 3}}]
+        ),
+        exception_message=snapshot("""\
+1 validation error for Model7
+nested.ALIAS
+  Field required [type=missing, input_value={'x': 1}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing\
+"""),
     ),
 ]
 
 
 @pytest.mark.parametrize("param", params)
-def test_sad_path_empty_exprs_select(param):
-    materializer = ModelMaterializer(**param.kwargs)
+def test_sad_path_missing_field(param):
+    """generate_bindings() never validates; generate_models() does and must
+    raise with a message scoped to the offending (possibly nested/aliased) field.
+    """
 
-    for expected in param.expected:
-        match expected:
-            case Expected():
-                assert list(materializer.generate_bindings()) == expected.bindings
-            case ExpectedException():
-                with pytest.raises(
-                    expected_exception=expected.exception, match=expected.match
-                ):
-                    list(materializer.generate_models())
+    materializer = ModelMaterializer(model=param.model, data=param.data)
 
-            case _:
-                assert False, "This should never happen."
+    assert list(materializer.generate_bindings()) == param.bindings
+    with pytest.raises(ValidationError) as exc_info:
+        list(materializer.generate_models())
+    assert str(exc_info.value) == param.exception_message

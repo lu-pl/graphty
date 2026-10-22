@@ -1,9 +1,11 @@
 """Tests for the Author/Work reference case."""
 
+from dataclasses import dataclass
+
 import pytest
 from graphty import ConfigDict, ModelMaterializer
+from inline_snapshot import snapshot
 from pydantic import BaseModel
-from tests.materializer.param import Expected, Parameter
 
 
 class Work(BaseModel):
@@ -73,11 +75,21 @@ data = [
     },
 ]
 
+
+@dataclass
+class Parameter:
+    model: object
+    data: object
+    bindings: object
+    model_dump: object
+
+
 params: list[Parameter] = [
     Parameter(
-        kwargs={"model": Author, "data": data},
-        expected=Expected(
-            bindings=[
+        model=Author,
+        data=data,
+        bindings=snapshot(
+            [
                 {
                     "name": "Schindel",
                     "gnd": "119359464",
@@ -112,17 +124,53 @@ params: list[Parameter] = [
                 },
             ]
         ),
-    )
+        model_dump=snapshot(
+            [
+                {
+                    "gnd": "119359464",
+                    "name": "Schindel",
+                    "works": [{"work_name": "Gebürtig", "viaf": ["123"]}],
+                    "educated_at": [],
+                },
+                {
+                    "gnd": "115612815",
+                    "name": "Geiger",
+                    "works": [
+                        {
+                            "work_name": "Der alte König in seinem Exil",
+                            "viaf": ["299260555", "6762154387354230970008"],
+                        },
+                        {
+                            "work_name": "Unter der Drachenwand",
+                            "viaf": ["2277151717053313900002"],
+                        },
+                    ],
+                    "educated_at": ["University of Vienna"],
+                },
+                {
+                    "gnd": "1136992030",
+                    "name": "Edelbauer",
+                    "works": [
+                        {"work_name": "Das flüssige Land", "viaf": ["456", "789"]}
+                    ],
+                    "educated_at": [
+                        "University of Vienna",
+                        "University of Applied Arts Vienna",
+                    ],
+                },
+            ]
+        ),
+    ),
 ]
 
 
 @pytest.mark.parametrize("param", params)
 def test_materalizer_author_work(param):
 
-    materializer = ModelMaterializer(**param.kwargs)
+    materializer = ModelMaterializer(model=param.model, data=param.data)
 
     bindings = list(materializer.generate_bindings())
     model_dump = [model.model_dump() for model in materializer.generate_models()]
 
-    assert bindings == param.expected.bindings
-    assert model_dump == param.expected.model_dump
+    assert bindings == param.bindings
+    assert model_dump == param.model_dump

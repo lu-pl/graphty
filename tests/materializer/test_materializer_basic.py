@@ -2,17 +2,12 @@
 
 import json
 import logging
-from typing import NamedTuple
+from dataclasses import dataclass
 
 import pytest
 from graphty import ConfigDict, ModelMaterializer
+from inline_snapshot import snapshot
 from pydantic import BaseModel, Field
-from tests.materializer.param import Expected, Parameter
-
-
-class TestParameter(NamedTuple):
-    kwargs: dict
-    expected: list[dict]
 
 
 class Model1(BaseModel):
@@ -31,44 +26,54 @@ class Model2(BaseModel):
 
 data = [{"x": 1, "y": 2}, {"x": 1, "y": 2}]
 
+
+@dataclass
+class Parameter:
+    model: object
+    data: object
+    bindings: object
+    model_dump: object
+
+
 params: list[Parameter] = [
     Parameter(
-        kwargs={"model": Model1, "data": data},
-        expected=Expected(bindings=[{"x": 1, "y": 2}], model_dump=[{"y": 2}]),
+        model=Model1,
+        data=data,
+        bindings=snapshot([{"x": 1, "y": 2}]),
+        model_dump=snapshot([{"y": 2}]),
     ),
     Parameter(
-        kwargs={"model": Model2, "data": data},
-        expected=Expected(bindings=[{"x": 1, "y": 2}]),
+        model=Model2,
+        data=data,
+        bindings=snapshot([{"x": 1, "y": 2}]),
+        model_dump=snapshot([{"x": 1, "y": 2}]),
     ),
 ]
 
 
 @pytest.mark.parametrize("param", params)
-def test_materalizer_basic(param):
+def test_materalizer_basic(param, caplog):
+    """Check materializer output and the structured DEBUG logging message it emits.
 
-    materializer = ModelMaterializer(**param.kwargs)
+    The logging part reuses the already-verified `bindings` list (not the raw
+    `param.bindings` snapshot) to introspect `caplog`'s structured message, since
+    a single snapshot object can only be used in one access mode (here: `==`).
+    """
+
+    materializer = ModelMaterializer(model=param.model, data=param.data)
 
     bindings = list(materializer.generate_bindings())
     model_dump = [model.model_dump() for model in materializer.generate_models()]
 
-    assert bindings == param.expected.bindings
-    assert model_dump == param.expected.model_dump
-
-
-@pytest.mark.parametrize("param", params)
-def test_materalizer_logging(param, caplog):
-    """Check the structured logging message from ModelMaterializer at level=logging.DEBUG.
-
-    The test uses the caplog fixture to introspect the log structured message
-    and parses the JSON part of the message to compare it to the current `binding` parameter.
-    """
+    assert bindings == param.bindings
+    assert model_dump == param.model_dump
 
     with caplog.at_level(logging.DEBUG):
-        materializer = ModelMaterializer(**param.kwargs)
+        logging_materializer = ModelMaterializer(model=param.model, data=param.data)
 
         for _, binding_from_param in zip(
-            materializer.generate_models(),
-            param.expected.bindings,
+            logging_materializer.generate_models(),
+            bindings,
         ):
             *_, json_part = caplog.text.rpartition(" >>> ")
             binding_from_json = json.loads(json_part)["binding"]

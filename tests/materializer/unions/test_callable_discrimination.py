@@ -8,12 +8,13 @@ Covers:
 - Discrimnated union model aggregation (top-level + nested union aggregation)
 """
 
+from dataclasses import dataclass
 from typing import Annotated, Any, Literal, Optional, Union
 
 import pytest
 from graphty import ConfigDict, ModelMaterializer
+from inline_snapshot import snapshot
 from pydantic import BaseModel, Discriminator, Field, Tag
-from tests.materializer.param import Expected, Parameter
 
 
 class Pie(BaseModel):
@@ -70,24 +71,36 @@ aggregation_data = [
 ]
 
 
+@dataclass
+class Parameter:
+    model: object
+    data: object
+    bindings: object
+    model_dump: object
+
+
 params: list[Parameter] = [
     Parameter(
-        kwargs={"model": ThanksgivingDinner, "data": data},
-        expected=Expected(
-            bindings=[
-                {"dessert": {"time_to_cook": 1, "fruit": "apple", "filling": None}},
-                {"dessert": {"time_to_cook": 2, "fruit": None, "filling": "pumpkin"}},
-            ],
-            model_dump=[
+        model=ThanksgivingDinner,
+        data=data,
+        bindings=snapshot(
+            [
+                {"dessert": {"fruit": "apple", "time_to_cook": 1, "filling": None}},
+                {"dessert": {"fruit": None, "time_to_cook": 2, "filling": "pumpkin"}},
+            ]
+        ),
+        model_dump=snapshot(
+            [
                 {"dessert": {"time_to_cook": 1, "fruit": "apple"}},
                 {"dessert": {"time_to_cook": 2, "filling": "pumpkin"}},
-            ],
+            ]
         ),
     ),
     Parameter(
-        kwargs={"model": GroupedDinner, "data": aggregation_data},
-        expected=Expected(
-            bindings=[
+        model=GroupedDinner,
+        data=aggregation_data,
+        bindings=snapshot(
+            [
                 {
                     "time_to_cook": 1,
                     "dinner": [
@@ -119,8 +132,10 @@ params: list[Parameter] = [
                         }
                     ],
                 },
-            ],
-            model_dump=[
+            ]
+        ),
+        model_dump=snapshot(
+            [
                 {
                     "time": 1,
                     "dinner": [
@@ -132,13 +147,14 @@ params: list[Parameter] = [
                     "time": 2,
                     "dinner": [{"dessert": {"time_to_cook": 2, "filling": "pumpkin"}}],
                 },
-            ],
+            ]
         ),
     ),
     Parameter(
-        kwargs={"model": NestedGroupedDinner, "data": aggregation_data},
-        expected=Expected(
-            bindings=[
+        model=NestedGroupedDinner,
+        data=aggregation_data,
+        bindings=snapshot(
+            [
                 {
                     "time_to_cook": 1,
                     "nested": {
@@ -176,8 +192,10 @@ params: list[Parameter] = [
                         ],
                     },
                 },
-            ],
-            model_dump=[
+            ]
+        ),
+        model_dump=snapshot(
+            [
                 {
                     "time": 1,
                     "nested": {
@@ -197,7 +215,7 @@ params: list[Parameter] = [
                         ],
                     },
                 },
-            ],
+            ]
         ),
     ),
 ]
@@ -205,11 +223,9 @@ params: list[Parameter] = [
 
 @pytest.mark.parametrize("param", params)
 def test_callable_discriminated_union(param):
-    materializer = ModelMaterializer(**param.kwargs)
-    assert list(materializer.generate_bindings()) == param.expected.bindings
-    assert [
-        m.model_dump() for m in materializer.generate_models()
-    ] == param.expected.model_dump
+    materializer = ModelMaterializer(model=param.model, data=param.data)
+    assert list(materializer.generate_bindings()) == param.bindings
+    assert [m.model_dump() for m in materializer.generate_models()] == param.model_dump
 
 
 def test_callable_discriminated_union_model_types():

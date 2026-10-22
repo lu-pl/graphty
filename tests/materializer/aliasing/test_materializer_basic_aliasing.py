@@ -1,7 +1,9 @@
+from dataclasses import dataclass
+
 import pytest
 from graphty import ConfigDict, ModelMaterializer
+from inline_snapshot import snapshot
 from pydantic import AliasChoices, BaseModel, Field
-from tests.materializer.param import Expected, Parameter
 
 data = [
     {"a": 1, "b": 3},
@@ -41,40 +43,50 @@ class Model5(BaseModel):
     y: int = Field(validation_alias=AliasChoices("foo", "bar", "b"))
 
 
+@dataclass
+class Parameter:
+    model: object
+    data: object
+    bindings: object
+    model_dump: object
+
+
 params: list[Parameter] = [
     Parameter(
-        kwargs={"model": Model1, "data": data},
-        expected=Expected(
-            bindings=[{"a": 1, "b": 3}, {"a": 1, "b": 4}, {"a": 2, "b": 6}],
-            model_dump=[{"x": 1, "y": 3}, {"x": 1, "y": 4}, {"x": 2, "y": 6}],
-        ),
+        model=Model1,
+        data=data,
+        bindings=snapshot([{"a": 1, "b": 3}, {"a": 1, "b": 4}, {"a": 2, "b": 6}]),
+        model_dump=snapshot([{"x": 1, "y": 3}, {"x": 1, "y": 4}, {"x": 2, "y": 6}]),
     ),
     Parameter(
-        kwargs={"model": Model2, "data": data},
-        expected=Expected(
-            bindings=[{"a": 1, "b": [3, 4]}, {"a": 2, "b": [6]}],
-            model_dump=[{"x": 1, "y": [3, 4]}, {"x": 2, "y": [6]}],
-        ),
+        model=Model2,
+        data=data,
+        bindings=snapshot([{"a": 1, "b": [3, 4]}, {"a": 2, "b": [6]}]),
+        model_dump=snapshot([{"x": 1, "y": [3, 4]}, {"x": 2, "y": [6]}]),
     ),
     Parameter(
-        kwargs={"model": Model3, "data": data},
-        expected=Expected(
-            bindings=[
+        model=Model3,
+        data=data,
+        bindings=snapshot(
+            [
                 {"nested_1": {"a": 1, "b": 3}, "nested_2": {"a": 1, "b": [3, 4]}},
                 {"nested_1": {"a": 1, "b": 4}, "nested_2": {"a": 1, "b": [3, 4]}},
                 {"nested_1": {"a": 2, "b": 6}, "nested_2": {"a": 2, "b": [6]}},
-            ],
-            model_dump=[
+            ]
+        ),
+        model_dump=snapshot(
+            [
                 {"nested_1": {"x": 1, "y": 3}, "nested_2": {"x": 1, "y": [3, 4]}},
                 {"nested_1": {"x": 1, "y": 4}, "nested_2": {"x": 1, "y": [3, 4]}},
                 {"nested_1": {"x": 2, "y": 6}, "nested_2": {"x": 2, "y": [6]}},
-            ],
+            ]
         ),
     ),
     Parameter(
-        kwargs={"model": Model4, "data": data},
-        expected=Expected(
-            bindings=[
+        model=Model4,
+        data=data,
+        bindings=snapshot(
+            [
                 {
                     "a": 1,
                     "agg_1": [{"a": 1, "b": 3}, {"a": 1, "b": 4}],
@@ -98,8 +110,10 @@ params: list[Parameter] = [
                         {"nested_1": {"a": 2, "b": 6}, "nested_2": {"a": 2, "b": [6]}}
                     ],
                 },
-            ],
-            model_dump=[
+            ]
+        ),
+        model_dump=snapshot(
+            [
                 {
                     "agg_1": [{"x": 1, "y": 3}, {"x": 1, "y": 4}],
                     "agg_2": [{"x": 1, "y": [3, 4]}],
@@ -121,25 +135,24 @@ params: list[Parameter] = [
                         {"nested_1": {"x": 2, "y": 6}, "nested_2": {"x": 2, "y": [6]}}
                     ],
                 },
-            ],
+            ]
         ),
     ),
     Parameter(
-        kwargs={"model": Model5, "data": data},
-        expected=Expected(
-            bindings=[{"a": 1, "b": 3}, {"a": 1, "b": 4}, {"a": 2, "b": 6}],
-            model_dump=[{"x": 1, "y": 3}, {"x": 1, "y": 4}, {"x": 2, "y": 6}],
-        ),
+        model=Model5,
+        data=data,
+        bindings=snapshot([{"a": 1, "b": 3}, {"a": 1, "b": 4}, {"a": 2, "b": 6}]),
+        model_dump=snapshot([{"x": 1, "y": 3}, {"x": 1, "y": 4}, {"x": 2, "y": 6}]),
     ),
 ]
 
 
 @pytest.mark.parametrize("param", params)
 def test_materializer_basic_aliasing(param):
-    materializer = ModelMaterializer(**param.kwargs)
+    materializer = ModelMaterializer(model=param.model, data=param.data)
 
     bindings = list(materializer.generate_bindings())
     model_dump = [model.model_dump() for model in materializer.generate_models()]
 
-    assert bindings == param.expected.bindings
-    assert model_dump == param.expected.model_dump
+    assert bindings == param.bindings
+    assert model_dump == param.model_dump
