@@ -1,9 +1,10 @@
+from dataclasses import dataclass
 from typing import Annotated
 
 import pytest
 from graphty import ConfigDict, ModelMaterializer
+from inline_snapshot import snapshot
 from pydantic import BaseModel, Field
-from tests.materializer.param import Expected, Parameter
 
 
 class DeeplyNested(BaseModel):
@@ -60,59 +61,76 @@ class Model5(BaseModel):
 
 data = [{"x": 1, "y": 2}, {"x": 1, "y": 3}, {"x": 3, "y": 4}]
 
-expected_bindings = [
-    {
-        "x": 1,
-        "model": {"x": 1, "y": [2, 3]},
-        "aggr": [
-            {"y": 2, "deeply_nested": {"x": 1, "y": [2, 3]}},
-            {"y": 3, "deeply_nested": {"x": 1, "y": [2, 3]}},
-        ],
-    },
-    {
-        "x": 3,
-        "model": {"x": 3, "y": [4]},
-        "aggr": [{"y": 4, "deeply_nested": {"x": 3, "y": [4]}}],
-    },
-]
+
+@dataclass
+class Parameter:
+    model: object
+    data: object
+    bindings: object
+    model_dump: object
 
 
-expected_model_dump = [
-    {
-        "x": 1,
-        "model": {"y": [2, 3]},
-        "aggr": [
-            {"y": 2, "deeply_nested": {"y": [2, 3]}},
-            {"y": 3, "deeply_nested": {"y": [2, 3]}},
-        ],
-    },
-    {
-        "x": 3,
-        "model": {"y": [4]},
-        "aggr": [{"y": 4, "deeply_nested": {"y": [4]}}],
-    },
-]
+expected_bindings = snapshot(
+    [
+        {
+            "x": 1,
+            "model": {"x": 1, "y": [2, 3]},
+            "aggr": [
+                {"y": 2, "deeply_nested": {"x": 1, "y": [2, 3]}},
+                {"y": 3, "deeply_nested": {"x": 1, "y": [2, 3]}},
+            ],
+        },
+        {
+            "x": 3,
+            "model": {"x": 3, "y": [4]},
+            "aggr": [{"y": 4, "deeply_nested": {"x": 3, "y": [4]}}],
+        },
+    ]
+)
+expected_model_dump = snapshot(
+    [
+        {
+            "x": 1,
+            "model": {"y": [2, 3]},
+            "aggr": [
+                {"y": 2, "deeply_nested": {"y": [2, 3]}},
+                {"y": 3, "deeply_nested": {"y": [2, 3]}},
+            ],
+        },
+        {"x": 3, "model": {"y": [4]}, "aggr": [{"y": 4, "deeply_nested": {"y": [4]}}]},
+    ]
+)
 
 params: list[Parameter] = [
     Parameter(
-        kwargs={"model": Model1, "data": data},
-        expected=Expected(bindings=expected_bindings, model_dump=expected_model_dump),
+        model=Model1,
+        data=data,
+        bindings=expected_bindings,
+        model_dump=expected_model_dump,
     ),
     Parameter(
-        kwargs={"model": Model2, "data": data},
-        expected=Expected(bindings=expected_bindings, model_dump=expected_model_dump),
+        model=Model2,
+        data=data,
+        bindings=expected_bindings,
+        model_dump=expected_model_dump,
     ),
     Parameter(
-        kwargs={"model": Model3, "data": data},
-        expected=Expected(bindings=expected_bindings, model_dump=expected_model_dump),
+        model=Model3,
+        data=data,
+        bindings=expected_bindings,
+        model_dump=expected_model_dump,
     ),
     Parameter(
-        kwargs={"model": Model4, "data": data},
-        expected=Expected(bindings=expected_bindings, model_dump=expected_model_dump),
+        model=Model4,
+        data=data,
+        bindings=expected_bindings,
+        model_dump=expected_model_dump,
     ),
     Parameter(
-        kwargs={"model": Model5, "data": data},
-        expected=Expected(bindings=expected_bindings, model_dump=expected_model_dump),
+        model=Model5,
+        data=data,
+        bindings=expected_bindings,
+        model_dump=expected_model_dump,
     ),
 ]
 
@@ -120,10 +138,10 @@ params: list[Parameter] = [
 @pytest.mark.parametrize("param", params)
 def test_materalizer_grouped_nested(param):
 
-    materializer = ModelMaterializer(**param.kwargs)
+    materializer = ModelMaterializer(model=param.model, data=param.data)
 
     bindings = list(materializer.generate_bindings())
     model_dump = [model.model_dump() for model in materializer.generate_models()]
 
-    assert bindings == param.expected.bindings
-    assert model_dump == param.expected.model_dump
+    assert bindings == param.bindings
+    assert model_dump == param.model_dump

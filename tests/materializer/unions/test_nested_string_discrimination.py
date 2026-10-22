@@ -6,12 +6,13 @@ Covers:
 - Discrimnated union model aggregation (top-level + nested union aggregation)
 """
 
+from dataclasses import dataclass
 from typing import Annotated, Literal, Union
 
 import pytest
 from graphty import ConfigDict, ModelMaterializer
+from inline_snapshot import snapshot
 from pydantic import BaseModel, Field
-from tests.materializer.param import Expected, Parameter
 
 
 class BlackCat(BaseModel):
@@ -61,39 +62,54 @@ data = [
     {"pet_type": "dog", "color": None, "name": "arcanine"},
 ]
 
+
+@dataclass
+class Parameter:
+    model: object
+    data: object
+    bindings: object
+    model_dump: object
+
+
 params: list[Parameter] = [
     Parameter(
-        kwargs={"model": Model, "data": data},
-        expected=Expected(
-            bindings=[
+        model=Model,
+        data=data,
+        bindings=snapshot(
+            [
                 {"pet": {"name": "felix", "pet_type": "cat", "color": "black"}},
                 {"pet": {"name": "muzi", "pet_type": "cat", "color": "white"}},
                 {"pet": {"name": "arcanine", "pet_type": "dog", "color": None}},
-            ],
-            model_dump=[
+            ]
+        ),
+        model_dump=snapshot(
+            [
                 {"pet": {"pet_type": "cat", "color": "black", "name": "felix"}},
                 {"pet": {"pet_type": "cat", "color": "white", "name": "muzi"}},
                 {"pet": {"pet_type": "dog", "name": "arcanine"}},
-            ],
+            ]
         ),
     ),
     Parameter(
-        kwargs={"model": GroupedPet, "data": data},
-        expected=Expected(
-            bindings=[
+        model=GroupedPet,
+        data=data,
+        bindings=snapshot(
+            [
                 {
                     "pet_type": "cat",
                     "pet": [
-                        {"pet_type": "cat", "color": "black", "name": "felix"},
-                        {"pet_type": "cat", "color": "white", "name": "muzi"},
+                        {"name": "felix", "pet_type": "cat", "color": "black"},
+                        {"name": "muzi", "pet_type": "cat", "color": "white"},
                     ],
                 },
                 {
                     "pet_type": "dog",
-                    "pet": [{"pet_type": "dog", "name": "arcanine", "color": None}],
+                    "pet": [{"name": "arcanine", "pet_type": "dog", "color": None}],
                 },
-            ],
-            model_dump=[
+            ]
+        ),
+        model_dump=snapshot(
+            [
                 {
                     "pet_type": "cat",
                     "pet": [
@@ -102,21 +118,22 @@ params: list[Parameter] = [
                     ],
                 },
                 {"pet_type": "dog", "pet": [{"pet_type": "dog", "name": "arcanine"}]},
-            ],
+            ]
         ),
     ),
     Parameter(
-        kwargs={"model": NestedGroupedPet, "data": data},
-        expected=Expected(
-            bindings=[
+        model=NestedGroupedPet,
+        data=data,
+        bindings=snapshot(
+            [
                 {
                     "pet_type": "cat",
                     "nested": [
                         {
                             "pet_type": "cat",
                             "pet": [
-                                {"pet_type": "cat", "color": "black", "name": "felix"},
-                                {"pet_type": "cat", "color": "white", "name": "muzi"},
+                                {"name": "felix", "pet_type": "cat", "color": "black"},
+                                {"name": "muzi", "pet_type": "cat", "color": "white"},
                             ],
                         }
                     ],
@@ -127,13 +144,15 @@ params: list[Parameter] = [
                         {
                             "pet_type": "dog",
                             "pet": [
-                                {"pet_type": "dog", "name": "arcanine", "color": None}
+                                {"name": "arcanine", "pet_type": "dog", "color": None}
                             ],
                         }
                     ],
                 },
-            ],
-            model_dump=[
+            ]
+        ),
+        model_dump=snapshot(
+            [
                 {
                     "pet_type": "cat",
                     "nested": [
@@ -155,7 +174,7 @@ params: list[Parameter] = [
                         }
                     ],
                 },
-            ],
+            ]
         ),
     ),
 ]
@@ -163,11 +182,9 @@ params: list[Parameter] = [
 
 @pytest.mark.parametrize("param", params)
 def test_nested_str_discriminated_union(param):
-    materializer = ModelMaterializer(**param.kwargs)
-    assert list(materializer.generate_bindings()) == param.expected.bindings
-    assert [
-        m.model_dump() for m in materializer.generate_models()
-    ] == param.expected.model_dump
+    materializer = ModelMaterializer(model=param.model, data=param.data)
+    assert list(materializer.generate_bindings()) == param.bindings
+    assert [m.model_dump() for m in materializer.generate_models()] == param.model_dump
 
 
 def test_nested_str_discriminated_union_model_types():

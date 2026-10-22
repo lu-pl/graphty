@@ -1,9 +1,10 @@
+from dataclasses import dataclass
 from typing import Annotated
 
 import pytest
 from graphty import Collect, ConfigDict, ModelMaterializer
+from inline_snapshot import snapshot
 from pydantic import BaseModel
-from tests.materializer.param import Expected, Parameter
 
 data = [
     {"x": 1, "y": 2},
@@ -121,26 +122,49 @@ class Model13(BaseModel):
     nested11: Model11
 
 
+@dataclass
+class Parameter:
+    model: object
+    data: object
+    bindings: object
+    model_dump: object
+
+
 params: list[Parameter] = [
     Parameter(
-        kwargs={"model": Model1, "data": data},
-        expected=Expected([{"x": 1, "y": [2, 3]}, {"x": 2, "y": [4]}]),
+        model=Model1,
+        data=data,
+        bindings=snapshot([{"x": 1, "y": [2, 3]}, {"x": 2, "y": [4]}]),
+        model_dump=snapshot([{"x": 1, "y": [2, 3]}, {"x": 2, "y": [4]}]),
     ),
     Parameter(
-        kwargs={"model": Model2, "data": data},
-        expected=Expected([{"x": 1, "y": [2, 3]}, {"x": 2, "y": [4]}]),
+        model=Model2,
+        data=data,
+        bindings=snapshot([{"x": 1, "y": [2, 3]}, {"x": 2, "y": [4]}]),
+        model_dump=snapshot([{"x": 1, "y": [2, 3]}, {"x": 2, "y": [4]}]),
     ),
     Parameter(
-        kwargs={"model": Model3, "data": data},
-        expected=Expected([{"x": 1, "y": [2, 3, None]}, {"x": 2, "y": [4]}]),
+        model=Model3,
+        data=data,
+        bindings=snapshot([{"x": 1, "y": [2, 3, None]}, {"x": 2, "y": [4]}]),
+        model_dump=snapshot([{"x": 1, "y": [2, 3, None]}, {"x": 2, "y": [4]}]),
     ),
     Parameter(
-        kwargs={"model": Model4, "data": data},
-        expected=Expected([{"x": 1, "y": [2, 3, 3, None]}, {"x": 2, "y": [4]}]),
+        model=Model4,
+        data=data,
+        bindings=snapshot([{"x": 1, "y": [2, 3, 3, None]}, {"x": 2, "y": [4]}]),
+        model_dump=snapshot([{"x": 1, "y": [2, 3, 3, None]}, {"x": 2, "y": [4]}]),
     ),
     Parameter(
-        kwargs={"model": Model5, "data": data},
-        expected=Expected(
+        model=Model5,
+        data=data,
+        bindings=snapshot(
+            [
+                {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                {"x": 2, "agg": [{"x": 2, "y": [4]}]},
+            ]
+        ),
+        model_dump=snapshot(
             [
                 {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
                 {"x": 2, "agg": [{"x": 2, "y": [4]}]},
@@ -148,8 +172,15 @@ params: list[Parameter] = [
         ),
     ),
     Parameter(
-        kwargs={"model": Model6, "data": data},
-        expected=Expected(
+        model=Model6,
+        data=data,
+        bindings=snapshot(
+            [
+                {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                {"x": 2, "agg": [{"x": 2, "y": [4]}]},
+            ]
+        ),
+        model_dump=snapshot(
             [
                 {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
                 {"x": 2, "agg": [{"x": 2, "y": [4]}]},
@@ -157,8 +188,15 @@ params: list[Parameter] = [
         ),
     ),
     Parameter(
-        kwargs={"model": Model7, "data": data},
-        expected=Expected(
+        model=Model7,
+        data=data,
+        bindings=snapshot(
+            [
+                {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                {"x": 2, "agg": [{"y": 4}]},
+            ]
+        ),
+        model_dump=snapshot(
             [
                 {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
                 {"x": 2, "agg": [{"y": 4}]},
@@ -166,8 +204,15 @@ params: list[Parameter] = [
         ),
     ),
     Parameter(
-        kwargs={"model": Model8, "data": data},
-        expected=Expected(
+        model=Model8,
+        data=data,
+        bindings=snapshot(
+            [
+                {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                {"x": 2, "agg": [{"y": 4}]},
+            ]
+        ),
+        model_dump=snapshot(
             [
                 {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
                 {"x": 2, "agg": [{"y": 4}]},
@@ -175,8 +220,15 @@ params: list[Parameter] = [
         ),
     ),
     Parameter(
-        kwargs={"model": Model9, "data": data},
-        expected=Expected(
+        model=Model9,
+        data=data,
+        bindings=snapshot(
+            [
+                {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": 3}, {"y": None}]},
+                {"x": 2, "agg": [{"y": 4}]},
+            ]
+        ),
+        model_dump=snapshot(
             [
                 {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": 3}, {"y": None}]},
                 {"x": 2, "agg": [{"y": 4}]},
@@ -184,8 +236,40 @@ params: list[Parameter] = [
         ),
     ),
     Parameter(
-        kwargs={"model": Model10, "data": data},
-        expected=Expected(
+        model=Model10,
+        data=data,
+        bindings=snapshot(
+            [
+                {
+                    "x": 1,
+                    "nested1": {"x": 1, "y": [2, 3]},
+                    "nested2": {"x": 1, "y": [2, 3]},
+                    "nested3": {"x": 1, "y": [2, 3, None]},
+                    "nested4": {"x": 1, "y": [2, 3, 3, None]},
+                    "nested5": {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                    "nested6": {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                    "nested7": {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                    "nested8": {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                    "nested9": {
+                        "x": 1,
+                        "agg": [{"y": 2}, {"y": 3}, {"y": 3}, {"y": None}],
+                    },
+                },
+                {
+                    "x": 2,
+                    "nested1": {"x": 2, "y": [4]},
+                    "nested2": {"x": 2, "y": [4]},
+                    "nested3": {"x": 2, "y": [4]},
+                    "nested4": {"x": 2, "y": [4]},
+                    "nested5": {"x": 2, "agg": [{"x": 2, "y": [4]}]},
+                    "nested6": {"x": 2, "agg": [{"x": 2, "y": [4]}]},
+                    "nested7": {"x": 2, "agg": [{"y": 4}]},
+                    "nested8": {"x": 2, "agg": [{"y": 4}]},
+                    "nested9": {"x": 2, "agg": [{"y": 4}]},
+                },
+            ]
+        ),
+        model_dump=snapshot(
             [
                 {
                     "x": 1,
@@ -218,8 +302,80 @@ params: list[Parameter] = [
         ),
     ),
     Parameter(
-        kwargs={"model": Model11, "data": data},
-        expected=Expected(
+        model=Model11,
+        data=data,
+        bindings=snapshot(
+            [
+                {
+                    "nested1": {"x": 1, "y": [2, 3]},
+                    "nested2": {"x": 1, "y": [2, 3]},
+                    "nested3": {"x": 1, "y": [2, 3, None]},
+                    "nested4": {"x": 1, "y": [2, 3, 3, None]},
+                    "nested5": {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                    "nested6": {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                    "nested7": {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                    "nested8": {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                    "nested9": {
+                        "x": 1,
+                        "agg": [{"y": 2}, {"y": 3}, {"y": 3}, {"y": None}],
+                    },
+                },
+                {
+                    "nested1": {"x": 1, "y": [2, 3]},
+                    "nested2": {"x": 1, "y": [2, 3]},
+                    "nested3": {"x": 1, "y": [2, 3, None]},
+                    "nested4": {"x": 1, "y": [2, 3, 3, None]},
+                    "nested5": {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                    "nested6": {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                    "nested7": {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                    "nested8": {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                    "nested9": {
+                        "x": 1,
+                        "agg": [{"y": 2}, {"y": 3}, {"y": 3}, {"y": None}],
+                    },
+                },
+                {
+                    "nested1": {"x": 1, "y": [2, 3]},
+                    "nested2": {"x": 1, "y": [2, 3]},
+                    "nested3": {"x": 1, "y": [2, 3, None]},
+                    "nested4": {"x": 1, "y": [2, 3, 3, None]},
+                    "nested5": {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                    "nested6": {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                    "nested7": {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                    "nested8": {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                    "nested9": {
+                        "x": 1,
+                        "agg": [{"y": 2}, {"y": 3}, {"y": 3}, {"y": None}],
+                    },
+                },
+                {
+                    "nested1": {"x": 1, "y": [2, 3]},
+                    "nested2": {"x": 1, "y": [2, 3]},
+                    "nested3": {"x": 1, "y": [2, 3, None]},
+                    "nested4": {"x": 1, "y": [2, 3, 3, None]},
+                    "nested5": {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                    "nested6": {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                    "nested7": {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                    "nested8": {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                    "nested9": {
+                        "x": 1,
+                        "agg": [{"y": 2}, {"y": 3}, {"y": 3}, {"y": None}],
+                    },
+                },
+                {
+                    "nested1": {"x": 2, "y": [4]},
+                    "nested2": {"x": 2, "y": [4]},
+                    "nested3": {"x": 2, "y": [4]},
+                    "nested4": {"x": 2, "y": [4]},
+                    "nested5": {"x": 2, "agg": [{"x": 2, "y": [4]}]},
+                    "nested6": {"x": 2, "agg": [{"x": 2, "y": [4]}]},
+                    "nested7": {"x": 2, "agg": [{"y": 4}]},
+                    "nested8": {"x": 2, "agg": [{"y": 4}]},
+                    "nested9": {"x": 2, "agg": [{"y": 4}]},
+                },
+            ]
+        ),
+        model_dump=snapshot(
             [
                 {
                     "nested1": {"x": 1, "y": [2, 3]},
@@ -292,8 +448,71 @@ params: list[Parameter] = [
         ),
     ),
     Parameter(
-        kwargs={"model": Model12, "data": data},
-        expected=Expected(
+        model=Model12,
+        data=data,
+        bindings=snapshot(
+            [
+                {
+                    "x": 1,
+                    "nested10": {
+                        "x": 1,
+                        "nested1": {"x": 1, "y": [2, 3]},
+                        "nested2": {"x": 1, "y": [2, 3]},
+                        "nested3": {"x": 1, "y": [2, 3, None]},
+                        "nested4": {"x": 1, "y": [2, 3, 3, None]},
+                        "nested5": {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                        "nested6": {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                        "nested7": {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                        "nested8": {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                        "nested9": {
+                            "x": 1,
+                            "agg": [{"y": 2}, {"y": 3}, {"y": 3}, {"y": None}],
+                        },
+                    },
+                    "nested11": {
+                        "nested1": {"x": 1, "y": [2, 3]},
+                        "nested2": {"x": 1, "y": [2, 3]},
+                        "nested3": {"x": 1, "y": [2, 3, None]},
+                        "nested4": {"x": 1, "y": [2, 3, 3, None]},
+                        "nested5": {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                        "nested6": {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                        "nested7": {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                        "nested8": {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                        "nested9": {
+                            "x": 1,
+                            "agg": [{"y": 2}, {"y": 3}, {"y": 3}, {"y": None}],
+                        },
+                    },
+                },
+                {
+                    "x": 2,
+                    "nested10": {
+                        "x": 2,
+                        "nested1": {"x": 2, "y": [4]},
+                        "nested2": {"x": 2, "y": [4]},
+                        "nested3": {"x": 2, "y": [4]},
+                        "nested4": {"x": 2, "y": [4]},
+                        "nested5": {"x": 2, "agg": [{"x": 2, "y": [4]}]},
+                        "nested6": {"x": 2, "agg": [{"x": 2, "y": [4]}]},
+                        "nested7": {"x": 2, "agg": [{"y": 4}]},
+                        "nested8": {"x": 2, "agg": [{"y": 4}]},
+                        "nested9": {"x": 2, "agg": [{"y": 4}]},
+                    },
+                    "nested11": {
+                        "nested1": {"x": 2, "y": [4]},
+                        "nested2": {"x": 2, "y": [4]},
+                        "nested3": {"x": 2, "y": [4]},
+                        "nested4": {"x": 2, "y": [4]},
+                        "nested5": {"x": 2, "agg": [{"x": 2, "y": [4]}]},
+                        "nested6": {"x": 2, "agg": [{"x": 2, "y": [4]}]},
+                        "nested7": {"x": 2, "agg": [{"y": 4}]},
+                        "nested8": {"x": 2, "agg": [{"y": 4}]},
+                        "nested9": {"x": 2, "agg": [{"y": 4}]},
+                    },
+                },
+            ]
+        ),
+        model_dump=snapshot(
             [
                 {
                     "x": 1,
@@ -357,8 +576,162 @@ params: list[Parameter] = [
         ),
     ),
     Parameter(
-        kwargs={"model": Model13, "data": data},
-        expected=Expected(
+        model=Model13,
+        data=data,
+        bindings=snapshot(
+            [
+                {
+                    "nested10": {
+                        "x": 1,
+                        "nested1": {"x": 1, "y": [2, 3]},
+                        "nested2": {"x": 1, "y": [2, 3]},
+                        "nested3": {"x": 1, "y": [2, 3, None]},
+                        "nested4": {"x": 1, "y": [2, 3, 3, None]},
+                        "nested5": {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                        "nested6": {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                        "nested7": {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                        "nested8": {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                        "nested9": {
+                            "x": 1,
+                            "agg": [{"y": 2}, {"y": 3}, {"y": 3}, {"y": None}],
+                        },
+                    },
+                    "nested11": {
+                        "nested1": {"x": 1, "y": [2, 3]},
+                        "nested2": {"x": 1, "y": [2, 3]},
+                        "nested3": {"x": 1, "y": [2, 3, None]},
+                        "nested4": {"x": 1, "y": [2, 3, 3, None]},
+                        "nested5": {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                        "nested6": {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                        "nested7": {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                        "nested8": {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                        "nested9": {
+                            "x": 1,
+                            "agg": [{"y": 2}, {"y": 3}, {"y": 3}, {"y": None}],
+                        },
+                    },
+                },
+                {
+                    "nested10": {
+                        "x": 1,
+                        "nested1": {"x": 1, "y": [2, 3]},
+                        "nested2": {"x": 1, "y": [2, 3]},
+                        "nested3": {"x": 1, "y": [2, 3, None]},
+                        "nested4": {"x": 1, "y": [2, 3, 3, None]},
+                        "nested5": {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                        "nested6": {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                        "nested7": {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                        "nested8": {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                        "nested9": {
+                            "x": 1,
+                            "agg": [{"y": 2}, {"y": 3}, {"y": 3}, {"y": None}],
+                        },
+                    },
+                    "nested11": {
+                        "nested1": {"x": 1, "y": [2, 3]},
+                        "nested2": {"x": 1, "y": [2, 3]},
+                        "nested3": {"x": 1, "y": [2, 3, None]},
+                        "nested4": {"x": 1, "y": [2, 3, 3, None]},
+                        "nested5": {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                        "nested6": {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                        "nested7": {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                        "nested8": {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                        "nested9": {
+                            "x": 1,
+                            "agg": [{"y": 2}, {"y": 3}, {"y": 3}, {"y": None}],
+                        },
+                    },
+                },
+                {
+                    "nested10": {
+                        "x": 1,
+                        "nested1": {"x": 1, "y": [2, 3]},
+                        "nested2": {"x": 1, "y": [2, 3]},
+                        "nested3": {"x": 1, "y": [2, 3, None]},
+                        "nested4": {"x": 1, "y": [2, 3, 3, None]},
+                        "nested5": {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                        "nested6": {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                        "nested7": {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                        "nested8": {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                        "nested9": {
+                            "x": 1,
+                            "agg": [{"y": 2}, {"y": 3}, {"y": 3}, {"y": None}],
+                        },
+                    },
+                    "nested11": {
+                        "nested1": {"x": 1, "y": [2, 3]},
+                        "nested2": {"x": 1, "y": [2, 3]},
+                        "nested3": {"x": 1, "y": [2, 3, None]},
+                        "nested4": {"x": 1, "y": [2, 3, 3, None]},
+                        "nested5": {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                        "nested6": {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                        "nested7": {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                        "nested8": {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                        "nested9": {
+                            "x": 1,
+                            "agg": [{"y": 2}, {"y": 3}, {"y": 3}, {"y": None}],
+                        },
+                    },
+                },
+                {
+                    "nested10": {
+                        "x": 1,
+                        "nested1": {"x": 1, "y": [2, 3]},
+                        "nested2": {"x": 1, "y": [2, 3]},
+                        "nested3": {"x": 1, "y": [2, 3, None]},
+                        "nested4": {"x": 1, "y": [2, 3, 3, None]},
+                        "nested5": {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                        "nested6": {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                        "nested7": {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                        "nested8": {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                        "nested9": {
+                            "x": 1,
+                            "agg": [{"y": 2}, {"y": 3}, {"y": 3}, {"y": None}],
+                        },
+                    },
+                    "nested11": {
+                        "nested1": {"x": 1, "y": [2, 3]},
+                        "nested2": {"x": 1, "y": [2, 3]},
+                        "nested3": {"x": 1, "y": [2, 3, None]},
+                        "nested4": {"x": 1, "y": [2, 3, 3, None]},
+                        "nested5": {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                        "nested6": {"x": 1, "agg": [{"x": 1, "y": [2, 3]}]},
+                        "nested7": {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                        "nested8": {"x": 1, "agg": [{"y": 2}, {"y": 3}, {"y": None}]},
+                        "nested9": {
+                            "x": 1,
+                            "agg": [{"y": 2}, {"y": 3}, {"y": 3}, {"y": None}],
+                        },
+                    },
+                },
+                {
+                    "nested10": {
+                        "x": 2,
+                        "nested1": {"x": 2, "y": [4]},
+                        "nested2": {"x": 2, "y": [4]},
+                        "nested3": {"x": 2, "y": [4]},
+                        "nested4": {"x": 2, "y": [4]},
+                        "nested5": {"x": 2, "agg": [{"x": 2, "y": [4]}]},
+                        "nested6": {"x": 2, "agg": [{"x": 2, "y": [4]}]},
+                        "nested7": {"x": 2, "agg": [{"y": 4}]},
+                        "nested8": {"x": 2, "agg": [{"y": 4}]},
+                        "nested9": {"x": 2, "agg": [{"y": 4}]},
+                    },
+                    "nested11": {
+                        "nested1": {"x": 2, "y": [4]},
+                        "nested2": {"x": 2, "y": [4]},
+                        "nested3": {"x": 2, "y": [4]},
+                        "nested4": {"x": 2, "y": [4]},
+                        "nested5": {"x": 2, "agg": [{"x": 2, "y": [4]}]},
+                        "nested6": {"x": 2, "agg": [{"x": 2, "y": [4]}]},
+                        "nested7": {"x": 2, "agg": [{"y": 4}]},
+                        "nested8": {"x": 2, "agg": [{"y": 4}]},
+                        "nested9": {"x": 2, "agg": [{"y": 4}]},
+                    },
+                },
+            ]
+        ),
+        model_dump=snapshot(
             [
                 {
                     "nested10": {
@@ -517,10 +890,10 @@ params: list[Parameter] = [
 
 @pytest.mark.parametrize("param", params)
 def test_materalizer_reduce_aggregation(param):
-    materializer = ModelMaterializer(**param.kwargs)
+    materializer = ModelMaterializer(model=param.model, data=param.data)
 
     bindings = list(materializer.generate_bindings())
     model_dump = [model.model_dump() for model in materializer.generate_models()]
 
-    assert bindings == param.expected.bindings
-    assert model_dump == param.expected.model_dump
+    assert bindings == param.bindings
+    assert model_dump == param.model_dump

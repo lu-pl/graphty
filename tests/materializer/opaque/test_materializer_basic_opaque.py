@@ -1,9 +1,10 @@
+from dataclasses import dataclass
 from typing import Annotated
 
 import pytest
 from graphty import ConfigDict, ModelMaterializer, Opaque
+from inline_snapshot import snapshot
 from pydantic import BaseModel
-from tests.materializer.param import Expected, Parameter
 
 
 class Model1(BaseModel):
@@ -80,16 +81,26 @@ data = [
     {"x": 2, "y": 4},
 ]
 
+
+@dataclass
+class Parameter:
+    model: object
+    data: object
+    bindings: object
+
+
 params: list[Parameter] = [
     Parameter(
-        kwargs={"model": Model1, "data": data},
-        expected=Expected(
+        model=Model1,
+        data=data,
+        bindings=snapshot(
             [{"x": {"y": 2, "x": 1}}, {"x": {"y": 3, "x": 1}}, {"x": {"y": 4, "x": 2}}]
         ),
     ),
     Parameter(
-        kwargs={"model": Model2, "data": data},
-        expected=Expected(
+        model=Model2,
+        data=data,
+        bindings=snapshot(
             [
                 {"x": {"y": 2, "x": 1}, "y": {"y": 2, "x": 1}},
                 {"x": {"y": 3, "x": 1}, "y": {"y": 3, "x": 1}},
@@ -98,8 +109,9 @@ params: list[Parameter] = [
         ),
     ),
     Parameter(
-        kwargs={"model": Model3, "data": data},
-        expected=Expected(
+        model=Model3,
+        data=data,
+        bindings=snapshot(
             [
                 {"x": 1, "y": [{"y": 2, "x": 1}, {"y": 3, "x": 1}]},
                 {"x": 2, "y": [{"y": 4, "x": 2}]},
@@ -107,8 +119,9 @@ params: list[Parameter] = [
         ),
     ),
     Parameter(
-        kwargs={"model": Model4, "data": data},
-        expected=Expected(
+        model=Model4,
+        data=data,
+        bindings=snapshot(
             [
                 {"nested": {"x": {"y": 2, "x": 1}}},
                 {"nested": {"x": {"y": 3, "x": 1}}},
@@ -117,8 +130,9 @@ params: list[Parameter] = [
         ),
     ),
     Parameter(
-        kwargs={"model": Model5, "data": data},
-        expected=Expected(
+        model=Model5,
+        data=data,
+        bindings=snapshot(
             [
                 {"nested": {"x": {"y": 2, "x": 1}, "y": {"y": 2, "x": 1}}},
                 {"nested": {"x": {"y": 3, "x": 1}, "y": {"y": 3, "x": 1}}},
@@ -127,8 +141,9 @@ params: list[Parameter] = [
         ),
     ),
     Parameter(
-        kwargs={"model": Model6, "data": data},
-        expected=Expected(
+        model=Model6,
+        data=data,
+        bindings=snapshot(
             [
                 {"x": 1, "nested": {"x": {"y": 2, "x": 1}}},
                 {"x": 2, "nested": {"x": {"y": 4, "x": 2}}},
@@ -136,8 +151,9 @@ params: list[Parameter] = [
         ),
     ),
     Parameter(
-        kwargs={"model": Model7, "data": data},
-        expected=Expected(
+        model=Model7,
+        data=data,
+        bindings=snapshot(
             [
                 {"x": 1, "nested": {"x": {"y": 2, "x": 1}, "y": {"y": 2, "x": 1}}},
                 {"x": 2, "nested": {"x": {"y": 4, "x": 2}, "y": {"y": 4, "x": 2}}},
@@ -145,8 +161,9 @@ params: list[Parameter] = [
         ),
     ),
     Parameter(
-        kwargs={"model": Model8, "data": data},
-        expected=Expected(
+        model=Model8,
+        data=data,
+        bindings=snapshot(
             [
                 {"x": 1, "nested": [{"x": {"y": 2, "x": 1}}, {"x": {"y": 3, "x": 1}}]},
                 {"x": 2, "nested": [{"x": {"y": 4, "x": 2}}]},
@@ -154,8 +171,9 @@ params: list[Parameter] = [
         ),
     ),
     Parameter(
-        kwargs={"model": Model9, "data": data},
-        expected=Expected(
+        model=Model9,
+        data=data,
+        bindings=snapshot(
             [
                 {
                     "x": 1,
@@ -169,8 +187,9 @@ params: list[Parameter] = [
         ),
     ),
     Parameter(
-        kwargs={"model": Model10, "data": data},
-        expected=Expected(
+        model=Model10,
+        data=data,
+        bindings=snapshot(
             [
                 {"raw": {"y": 2, "x": 1}},
                 {"raw": {"y": 3, "x": 1}},
@@ -179,8 +198,9 @@ params: list[Parameter] = [
         ),
     ),
     Parameter(
-        kwargs={"model": Model11, "data": data},
-        expected=Expected(
+        model=Model11,
+        data=data,
+        bindings=snapshot(
             [
                 {"nested": {"raw": {"y": 2, "x": 1}}},
                 {"nested": {"raw": {"y": 3, "x": 1}}},
@@ -193,8 +213,14 @@ params: list[Parameter] = [
 
 @pytest.mark.parametrize("param", params)
 def test_materalizer_opaque_basic(param):
+    """Only `generate_bindings()` is checked here: `Opaque()` disengages the
+    planner (which forwards the raw struct regardless of the field's declared
+    type), not Pydantic. What happens on `generate_models()` for a
+    concretely-typed opaque field without a before-validator is Pydantic's own
+    type validation behaving exactly as documented, not graphty-specific logic.
+    """
 
-    materializer = ModelMaterializer(**param.kwargs)
+    materializer = ModelMaterializer(model=param.model, data=param.data)
     bindings = list(materializer.generate_bindings())
 
-    assert bindings == param.expected.bindings
+    assert bindings == param.bindings

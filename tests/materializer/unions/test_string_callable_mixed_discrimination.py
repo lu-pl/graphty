@@ -7,12 +7,13 @@ Covers:
 - Discrimnated union model aggregation (top-level + nested union aggregation)
 """
 
+from dataclasses import dataclass
 from typing import Annotated, Any, Literal
 
 import pytest
 from graphty import ConfigDict, ModelMaterializer
+from inline_snapshot import snapshot
 from pydantic import BaseModel, Discriminator, Field, Tag
-from tests.materializer.param import Expected, Parameter
 
 
 class Cat(BaseModel):
@@ -73,26 +74,38 @@ data = [
 ]
 
 
+@dataclass
+class Parameter:
+    model: object
+    data: object
+    bindings: object
+    model_dump: object
+
+
 params = [
     Parameter(
-        kwargs={"model": Model, "data": data},
-        expected=Expected(
-            bindings=[
+        model=Model,
+        data=data,
+        bindings=snapshot(
+            [
                 {"thing": {"kind": "cat", "bike_type": None, "name": "Muzi"}},
                 {"thing": {"kind": "bike", "bike_type": "road", "name": None}},
                 {"thing": {"kind": "bike", "bike_type": "mountain", "name": None}},
-            ],
-            model_dump=[
+            ]
+        ),
+        model_dump=snapshot(
+            [
                 {"thing": {"kind": "cat", "name": "Muzi"}},
                 {"thing": {"kind": "bike", "bike_type": "road"}},
                 {"thing": {"kind": "bike", "bike_type": "mountain"}},
-            ],
+            ]
         ),
     ),
     Parameter(
-        kwargs={"model": GroupedThing, "data": data},
-        expected=Expected(
-            bindings=[
+        model=GroupedThing,
+        data=data,
+        bindings=snapshot(
+            [
                 {
                     "kind": "cat",
                     "nested": [{"kind": "cat", "bike_type": None, "name": "Muzi"}],
@@ -104,8 +117,10 @@ params = [
                         {"kind": "bike", "bike_type": "mountain", "name": None},
                     ],
                 },
-            ],
-            model_dump=[
+            ]
+        ),
+        model_dump=snapshot(
+            [
                 {"kind": "cat", "nested": [{"kind": "cat", "name": "Muzi"}]},
                 {
                     "kind": "bike",
@@ -114,13 +129,14 @@ params = [
                         {"kind": "bike", "bike_type": "mountain"},
                     ],
                 },
-            ],
+            ]
         ),
     ),
     Parameter(
-        kwargs={"model": NestedGroupedThing, "data": data},
-        expected=Expected(
-            bindings=[
+        model=NestedGroupedThing,
+        data=data,
+        bindings=snapshot(
+            [
                 {
                     "kind": "cat",
                     "nested": [
@@ -144,8 +160,10 @@ params = [
                         }
                     ],
                 },
-            ],
-            model_dump=[
+            ]
+        ),
+        model_dump=snapshot(
+            [
                 {
                     "kind": "cat",
                     "nested": [
@@ -164,7 +182,7 @@ params = [
                         }
                     ],
                 },
-            ],
+            ]
         ),
     ),
 ]
@@ -172,11 +190,9 @@ params = [
 
 @pytest.mark.parametrize("param", params)
 def test_string_callable_mixed_discrimination(param):
-    materializer = ModelMaterializer(**param.kwargs)
-    assert list(materializer.generate_bindings()) == param.expected.bindings
-    assert [
-        m.model_dump() for m in materializer.generate_models()
-    ] == param.expected.model_dump
+    materializer = ModelMaterializer(model=param.model, data=param.data)
+    assert list(materializer.generate_bindings()) == param.bindings
+    assert [m.model_dump() for m in materializer.generate_models()] == param.model_dump
 
 
 def test_string_callable_mixed_discrimination_model_types():

@@ -4,12 +4,13 @@ Covers:
 - Mixed callable and string discriminated unions with heavy nesting.
 """
 
+from dataclasses import dataclass
 from typing import Annotated, Any, Literal
 
 import pytest
 from graphty import ConfigDict, ModelMaterializer
+from inline_snapshot import snapshot
 from pydantic import BaseModel, Discriminator, Field, Tag
-from tests.materializer.param import Expected, Parameter
 
 
 class Cat(BaseModel):
@@ -128,110 +129,122 @@ aggregation_data = {
 }
 
 
+@dataclass
+class Parameter:
+    model: object
+    data: object
+    bindings: object
+    model_dump: object
+
+
 params: list[Parameter] = [
     Parameter(
-        kwargs={"model": Model, "data": data},
-        expected=Expected(
-            bindings=[
+        model=Model,
+        data=data,
+        bindings=snapshot(
+            [
                 {
                     "thing": {
-                        "kind": "cat",
                         "name": "Misty",
+                        "kind": "cat",
+                        "length_cm": None,
+                        "venomous": None,
+                        "bark_volume": None,
                         "lives": 9,
-                        "bark_volume": None,
-                        "length_cm": None,
-                        "venomous": None,
-                        "make": None,
-                        "doors": None,
                         "brand": None,
                         "gears": None,
+                        "make": None,
+                        "doors": None,
                     }
                 },
                 {
                     "thing": {
-                        "kind": "dog",
                         "name": "Rex",
-                        "lives": None,
-                        "bark_volume": 11,
+                        "kind": "dog",
                         "length_cm": None,
                         "venomous": None,
-                        "make": None,
-                        "doors": None,
+                        "bark_volume": 11,
+                        "lives": None,
                         "brand": None,
                         "gears": None,
+                        "make": None,
+                        "doors": None,
                     }
                 },
                 {
                     "thing": {
-                        "kind": "lizard",
                         "name": "Lizzy",
-                        "lives": None,
-                        "bark_volume": None,
+                        "kind": "lizard",
                         "length_cm": 42.5,
                         "venomous": None,
-                        "make": None,
-                        "doors": None,
+                        "bark_volume": None,
+                        "lives": None,
                         "brand": None,
                         "gears": None,
+                        "make": None,
+                        "doors": None,
                     }
                 },
                 {
                     "thing": {
-                        "kind": "snake",
                         "name": "Snek",
-                        "lives": None,
-                        "bark_volume": None,
+                        "kind": "snake",
                         "length_cm": None,
                         "venomous": True,
-                        "make": None,
-                        "doors": None,
+                        "bark_volume": None,
+                        "lives": None,
                         "brand": None,
                         "gears": None,
+                        "make": None,
+                        "doors": None,
                     }
                 },
                 {
                     "thing": {
-                        "kind": "car",
                         "name": None,
-                        "lives": None,
-                        "bark_volume": None,
+                        "kind": "car",
                         "length_cm": None,
                         "venomous": None,
+                        "bark_volume": None,
+                        "lives": None,
+                        "brand": None,
+                        "gears": None,
                         "make": "Toyota",
                         "doors": 4,
-                        "brand": None,
-                        "gears": None,
                     }
                 },
                 {
                     "thing": {
-                        "kind": "bike",
                         "name": None,
-                        "lives": None,
-                        "bark_volume": None,
+                        "kind": "bike",
                         "length_cm": None,
                         "venomous": None,
-                        "make": None,
-                        "doors": None,
+                        "bark_volume": None,
+                        "lives": None,
                         "brand": "Trek",
                         "gears": 21,
+                        "make": None,
+                        "doors": None,
                     }
                 },
-            ],
-            model_dump=[
-                {"thing": {"kind": "cat", "lives": 9, "name": "Misty"}},
-                {"thing": {"bark_volume": 11, "kind": "dog", "name": "Rex"}},
-                {"thing": {"kind": "lizard", "length_cm": 42.5, "name": "Lizzy"}},
+            ]
+        ),
+        model_dump=snapshot(
+            [
+                {"thing": {"kind": "cat", "name": "Misty", "lives": 9}},
+                {"thing": {"kind": "dog", "name": "Rex", "bark_volume": 11}},
+                {"thing": {"kind": "lizard", "name": "Lizzy", "length_cm": 42.5}},
                 {"thing": {"kind": "snake", "name": "Snek", "venomous": True}},
-                {"thing": {"doors": 4, "kind": "car", "make": "Toyota"}},
-                {"thing": {"brand": "Trek", "gears": 21, "kind": "bike"}},
-            ],
+                {"thing": {"kind": "car", "make": "Toyota", "doors": 4}},
+                {"thing": {"kind": "bike", "brand": "Trek", "gears": 21}},
+            ]
         ),
     ),
     Parameter(
-        kwargs={"model": GroupedThing, "data": aggregation_data},
-        expected=Expected(
-            bindings=[
+        model=GroupedThing,
+        data=aggregation_data,
+        bindings=snapshot(
+            [
                 {
                     "group_key": 1,
                     "thing": [
@@ -314,8 +327,10 @@ params: list[Parameter] = [
                         },
                     ],
                 },
-            ],
-            model_dump=[
+            ]
+        ),
+        model_dump=snapshot(
+            [
                 {
                     "group_key": 1,
                     "thing": [
@@ -332,13 +347,14 @@ params: list[Parameter] = [
                         {"kind": "car", "make": "Toyota", "doors": 4},
                     ],
                 },
-            ],
+            ]
         ),
     ),
     Parameter(
-        kwargs={"model": NestedGroupedThing, "data": aggregation_data},
-        expected=Expected(
-            bindings=[
+        model=NestedGroupedThing,
+        data=aggregation_data,
+        bindings=snapshot(
+            [
                 {
                     "group_key": 1,
                     "nested": [
@@ -431,8 +447,10 @@ params: list[Parameter] = [
                         }
                     ],
                 },
-            ],
-            model_dump=[
+            ]
+        ),
+        model_dump=snapshot(
+            [
                 {
                     "group_key": 1,
                     "nested": [
@@ -459,7 +477,7 @@ params: list[Parameter] = [
                         }
                     ],
                 },
-            ],
+            ]
         ),
     ),
 ]
@@ -467,11 +485,9 @@ params: list[Parameter] = [
 
 @pytest.mark.parametrize("param", params)
 def test_nested_callable_discriminated_union(param):
-    materializer = ModelMaterializer(**param.kwargs)
-    assert list(materializer.generate_bindings()) == param.expected.bindings
-    assert [
-        m.model_dump() for m in materializer.generate_models()
-    ] == param.expected.model_dump
+    materializer = ModelMaterializer(model=param.model, data=param.data)
+    assert list(materializer.generate_bindings()) == param.bindings
+    assert [m.model_dump() for m in materializer.generate_models()] == param.model_dump
 
 
 def test_nested_callable_discriminated_union_model_types():

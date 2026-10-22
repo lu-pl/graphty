@@ -1,9 +1,10 @@
+from dataclasses import dataclass
 from typing import Annotated
 
 import pytest
 from graphty import ConfigDict, ModelMaterializer, Reduce
+from inline_snapshot import snapshot
 from pydantic import BaseModel
-from tests.materializer.param import Expected, Parameter
 
 data = [
     {"x": 1, "y": 2, "z": 3},
@@ -56,22 +57,43 @@ class Model7(BaseModel):
     nested4: Model4
 
 
+@dataclass
+class Parameter:
+    model: object
+    data: object
+    bindings: object
+    model_dump: object
+
+
 params = [
     Parameter(
-        kwargs={"model": Model1, "data": data},
-        expected=Expected([{"x": 1, "y": 2}, {"x": 2, "y": 4}]),
+        model=Model1,
+        data=data,
+        bindings=snapshot([{"x": 1, "y": 2}, {"x": 2, "y": 4}]),
+        model_dump=snapshot([{"x": 1, "y": 2}, {"x": 2, "y": 4}]),
     ),
     Parameter(
-        kwargs={"model": Model2, "data": data},
-        expected=Expected([{"x": 1, "y": 2}, {"x": 2, "y": 4}]),
+        model=Model2,
+        data=data,
+        bindings=snapshot([{"x": 1, "y": 2}, {"x": 2, "y": 4}]),
+        model_dump=snapshot([{"x": 1, "y": 2.0}, {"x": 2, "y": 4.0}]),
     ),
     Parameter(
-        kwargs={"model": Model3, "data": data},
-        expected=Expected([{"x": 1, "y": 2.5}, {"x": 2, "y": 4.0}]),
+        model=Model3,
+        data=data,
+        bindings=snapshot([{"x": 1, "y": 2.5}, {"x": 2, "y": 4.0}]),
+        model_dump=snapshot([{"x": 1, "y": 2.5}, {"x": 2, "y": 4.0}]),
     ),
     Parameter(
-        kwargs={"model": Model4, "data": data},
-        expected=Expected(
+        model=Model4,
+        data=data,
+        bindings=snapshot(
+            [
+                {"x": 1, "nested3": {"x": 1, "y": 2.5}},
+                {"x": 2, "nested3": {"x": 2, "y": 4.0}},
+            ]
+        ),
+        model_dump=snapshot(
             [
                 {"x": 1, "nested3": {"x": 1, "y": 2.5}},
                 {"x": 2, "nested3": {"x": 2, "y": 4.0}},
@@ -79,8 +101,16 @@ params = [
         ),
     ),
     Parameter(
-        kwargs={"model": Model5, "data": data},
-        expected=Expected(
+        model=Model5,
+        data=data,
+        bindings=snapshot(
+            [
+                {"x": 1, "nested3": {"x": 1, "y": 2.5}},
+                {"x": 1, "nested3": {"x": 1, "y": 2.5}},
+                {"x": 2, "nested3": {"x": 2, "y": 4.0}},
+            ]
+        ),
+        model_dump=snapshot(
             [
                 {"x": 1, "nested3": {"x": 1, "y": 2.5}},
                 {"x": 1, "nested3": {"x": 1, "y": 2.5}},
@@ -89,8 +119,15 @@ params = [
         ),
     ),
     Parameter(
-        kwargs={"model": Model6, "data": data},
-        expected=Expected(
+        model=Model6,
+        data=data,
+        bindings=snapshot(
+            [
+                {"x": 1, "nested4": {"x": 1, "nested3": {"x": 1, "y": 2.5}}},
+                {"x": 2, "nested4": {"x": 2, "nested3": {"x": 2, "y": 4.0}}},
+            ]
+        ),
+        model_dump=snapshot(
             [
                 {"x": 1, "nested4": {"x": 1, "nested3": {"x": 1, "y": 2.5}}},
                 {"x": 2, "nested4": {"x": 2, "nested3": {"x": 2, "y": 4.0}}},
@@ -98,8 +135,16 @@ params = [
         ),
     ),
     Parameter(
-        kwargs={"model": Model7, "data": data},
-        expected=Expected(
+        model=Model7,
+        data=data,
+        bindings=snapshot(
+            [
+                {"nested4": {"x": 1, "nested3": {"x": 1, "y": 2.5}}},
+                {"nested4": {"x": 1, "nested3": {"x": 1, "y": 2.5}}},
+                {"nested4": {"x": 2, "nested3": {"x": 2, "y": 4.0}}},
+            ]
+        ),
+        model_dump=snapshot(
             [
                 {"nested4": {"x": 1, "nested3": {"x": 1, "y": 2.5}}},
                 {"nested4": {"x": 1, "nested3": {"x": 1, "y": 2.5}}},
@@ -112,10 +157,10 @@ params = [
 
 @pytest.mark.parametrize("param", params)
 def test_materalizer_reduce_aggregation(param):
-    materializer = ModelMaterializer(**param.kwargs)
+    materializer = ModelMaterializer(model=param.model, data=param.data)
 
     bindings = list(materializer.generate_bindings())
     model_dump = [model.model_dump() for model in materializer.generate_models()]
 
-    assert bindings == param.expected.bindings
-    assert model_dump == param.expected.model_dump
+    assert bindings == param.bindings
+    assert model_dump == param.model_dump
