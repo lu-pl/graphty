@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.8.1](https://github.com/lu-pl/graphty/compare/v0.8.0...v0.8.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* **exceptions:** use `__str__` in parametrized custom exceptions ([651f29b](https://github.com/lu-pl/graphty/commit/651f29b46c115c1c96821f846cbd7c265028ee3f))
+
+
+### Documentation
+
+* **mkdocs:** add mkdocs static page ([8cebef7](https://github.com/lu-pl/graphty/commit/8cebef7aa8dc318aff29cd1db63c833b6d4c524b))
+* **readme:** add docs page badge and links ([5100cec](https://github.com/lu-pl/graphty/commit/5100cec3f96bc1cfb188f1e7ffed744750f04a74))
+
 ## [0.8.0](https://github.com/lu-pl/graphty/compare/v0.7.1...v0.8.0) (2026-10-08)
 
 
