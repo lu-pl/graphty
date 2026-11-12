@@ -1,0 +1,124 @@
+/* Brand colours, taken from graphty.svg */
+:root {
+  --graphty-navy: #0d1e39;
+  --graphty-violet: #643cdb;
+  --graphty-lilac: #a78bfa;
+}
+
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: var(--graphty-navy);
+  --md-primary-fg-color--light: #1b3360;
+  --md-primary-fg-color--dark: #07111f;
+  --md-accent-fg-color: var(--graphty-violet);
+  --md-typeset-a-color: var(--graphty-violet);
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #12172a;
+  --md-primary-fg-color--light: #1d2440;
+  --md-primary-fg-color--dark: #0a0d18;
+  --md-accent-fg-color: var(--graphty-lilac);
+  --md-typeset-a-color: var(--graphty-lilac);
+  --md-default-bg-color: #0f1322;
+}
+
+/* ---------- Landing page ---------- */
+
+.gt-hero {
+  max-width: 36rem;
+  margin: 2rem auto 2.5rem;
+  text-align: center;
+}
+
+.gt-hero__logo {
+  width: 14rem;
+}
+
+.md-typeset .gt-hero h1 {
+  margin: 1rem 0 0.8rem;
+  font-weight: 700;
+  color: var(--md-default-fg-color);
+}
+
+.gt-hero p {
+  text-wrap: balance;
+}
+
+.gt-hero .md-button {
+  margin: 0.4rem 0.2rem 0;
+}
+
+/* Buttons default to the primary colour, which is near-black in dark mode */
+[data-md-color-scheme="slate"] .md-typeset .md-button {
+  color: var(--md-default-fg-color);
+}
+
+[data-md-color-scheme="slate"] .md-typeset .md-button--primary {
+  background-color: var(--graphty-lilac);
+  border-color: var(--graphty-lilac);
+  color: var(--md-default-bg-color);
+}
+
+/* Keep the monospace name in buttons, without the code chip */
+.md-typeset .md-button code {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+}
+
+/* Code and result side by side on wide screens, stretched to equal height */
+.gt-example {
+  display: grid;
+  gap: 0 1rem;
+}
+
+.gt-example > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.md-typeset .gt-caption {
+  margin: 0 0 0.4rem;
+  font-size: 0.7rem;
+  color: var(--md-default-fg-color--light);
+}
+
+.md-typeset .gt-example .highlight {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.md-typeset .gt-example pre {
+  flex: 1;
+  margin: 0 0 1rem;
+}
+
+.md-typeset .gt-example pre > code {
+  height: 100%;
+}
+
+.md-typeset .gt-example code {
+  font-size: 0.6rem;
+}
+
+@media screen and (min-width: 60em) {
+  .gt-example {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Lift feature cards on hover */
+.md-typeset .grid.cards > ul > li {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.md-typeset .grid.cards > ul > li:hover {
+  transform: translateY(-3px);
+  border-color: var(--md-accent-fg-color);
+  box-shadow: 0 0.6rem 1.5rem rgb(100 60 219 / 0.18);
+}
+
+.md-typeset .grid.cards .lg {
+  color: var(--md-accent-fg-color);
+}
