@@ -5,6 +5,7 @@
 [![coverage](https://coveralls.io/repos/github/lu-pl/graphty/badge.svg?branch=main&kill_cache=1)](https://coveralls.io/github/lu-pl/graphty?branch=lupl/actions)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
+[![docs](https://img.shields.io/badge/docs-lu--pl.github.io%2Fgraphty-643cdb)](https://lu-pl.github.io/graphty/)
 
 
 `graphty` is a Python library for materializing [Pydantic](https://github.com/pydantic/pydantic) object graphs from relational data.
@@ -28,6 +29,10 @@ Although originally developed for implementing typed REST APIs over SPARQL endpo
 
 ## Installation
 `graphty` is a [PEP 621](https://peps.python.org/pep-0621/)-compliant package and available on [PyPI](https://pypi.org/project/graphty/).
+
+```shell
+pip install graphty
+```
 
 
 ## Usage
@@ -111,3 +116,8 @@ The above validates against the `Author` model and serializes to the following J
     }
 ]
 ```
+
+## Documentation
+
+See the [`graphty` documentation](https://lu-pl.github.io/graphty/) for a [getting started guide](https://lu-pl.github.io/graphty/getting-started/), the [tutorial](https://lu-pl.github.io/graphty/tutorial/) and the [API reference](https://lu-pl.github.io/graphty/reference/api/).
+
