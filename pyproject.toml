@@ -25,6 +25,10 @@ dev = [
     "pytest-randomly>=4.1.0",
     "ruff>=0.15.17",
 ]
+docs = [
+    "mkdocs-material>=9.8.1",
+    "mkdocstrings[python]>=1.0.8",
+]
 
 [tool.pytest.ini_options]
 addopts = [
