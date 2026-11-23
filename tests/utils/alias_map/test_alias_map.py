@@ -90,6 +90,10 @@ class Model8(BaseModel):
     x: int = Field(alias=AliasChoices("a"))
 
 
+class Model9(BaseModel):
+    x: int = Field(validation_alias=AliasChoices("a", "b"))
+
+
 @dataclass
 class Parameter:
     model: object
@@ -153,6 +157,10 @@ params: list[Parameter] = [
     # Single entry AliasChoice should behave like a regular alias parameter and
     # therefore is decidable regardless of the projection.
     Parameter(model=Model8, projection=set(), expected=snapshot({"x": "a"})),
+    # Unresolvable AliasChoice falls back to the field name and leaves default
+    # handling to Pydantic (#107).
+    Parameter(model=Model9, projection=set(), expected=snapshot({"x": "x"})),
+    Parameter(model=Model9, projection={"y", "z"}, expected=snapshot({"x": "x"})),
 ]
 
 
