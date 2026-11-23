@@ -54,6 +54,46 @@ class Model7(BaseModel):
     x: int = 1
 
 
+class Model8(BaseModel):
+    model_config = ConfigDict(group_by="a")
+
+    a: int
+    b: list[int] = []
+    c: list[int] = Field(default_factory=lambda: [1])
+    d: list[int] = Field(default_factory=lambda data: [data["a"]])
+    e: list[int] = Field(default=[], alias="x")
+
+
+class Model9(BaseModel):
+    model_config = ConfigDict(group_by="a")
+
+    a: int
+    b: list[int] = []
+    c: list[int]
+
+
+class Model10(BaseModel):
+    model_config = ConfigDict(group_by="a")
+
+    a: int
+    nested: list[Model8]
+
+
+class Model11(BaseModel):
+    model_config = ConfigDict(group_by="a")
+
+    a: int
+    nested: Model8
+
+
+grouped_data = [
+    {"a": 1},
+    {"a": 1},
+    {"a": 2},
+    {"a": 3},
+]
+
+
 @dataclass
 class Parameter:
     model: object
@@ -152,6 +192,63 @@ params: list[Parameter] = [
         ),
     ),
     Parameter(model=Model7, data=[], bindings=snapshot([]), model_dump=snapshot([])),
+    # list-of-scalar fields with defaults and no column in the data (#106)
+    Parameter(
+        model=Model8,
+        data=grouped_data,
+        bindings=snapshot([{"a": 1}, {"a": 2}, {"a": 3}]),
+        model_dump=snapshot(
+            [
+                {"a": 1, "b": [], "c": [1], "d": [1], "e": []},
+                {"a": 2, "b": [], "c": [1], "d": [2], "e": []},
+                {"a": 3, "b": [], "c": [1], "d": [3], "e": []},
+            ]
+        ),
+    ),
+    Parameter(
+        model=Model9,
+        data=[{"a": 1, "c": 1}, {"a": 1, "c": 2}, {"a": 2, "c": 3}],
+        bindings=snapshot([{"a": 1, "c": [1, 2]}, {"a": 2, "c": [3]}]),
+        model_dump=snapshot(
+            [{"a": 1, "b": [], "c": [1, 2]}, {"a": 2, "b": [], "c": [3]}]
+        ),
+    ),
+    Parameter(
+        model=Model10,
+        data=grouped_data,
+        bindings=snapshot(
+            [
+                {"a": 1, "nested": [{"a": 1}]},
+                {"a": 2, "nested": [{"a": 2}]},
+                {"a": 3, "nested": [{"a": 3}]},
+            ]
+        ),
+        model_dump=snapshot(
+            [
+                {"a": 1, "nested": [{"a": 1, "b": [], "c": [1], "d": [1], "e": []}]},
+                {"a": 2, "nested": [{"a": 2, "b": [], "c": [1], "d": [2], "e": []}]},
+                {"a": 3, "nested": [{"a": 3, "b": [], "c": [1], "d": [3], "e": []}]},
+            ]
+        ),
+    ),
+    Parameter(
+        model=Model11,
+        data=grouped_data,
+        bindings=snapshot(
+            [
+                {"a": 1, "nested": {"a": 1}},
+                {"a": 2, "nested": {"a": 2}},
+                {"a": 3, "nested": {"a": 3}},
+            ]
+        ),
+        model_dump=snapshot(
+            [
+                {"a": 1, "nested": {"a": 1, "b": [], "c": [1], "d": [1], "e": []}},
+                {"a": 2, "nested": {"a": 2, "b": [], "c": [1], "d": [2], "e": []}},
+                {"a": 3, "nested": {"a": 3, "b": [], "c": [1], "d": [3], "e": []}},
+            ]
+        ),
+    ),
 ]
 
 
