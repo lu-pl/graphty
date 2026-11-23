@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import pytest
 from graphty import ConfigDict, ModelMaterializer
 from inline_snapshot import snapshot
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 data = [
     {"a": 1},
@@ -84,6 +84,30 @@ class Model11(BaseModel):
 
     a: int
     nested: Model8
+
+
+class Model12(BaseModel):
+    a: int
+    b: int = Field(default=0, validation_alias="bee")
+
+
+class Model13(BaseModel):
+    a: int
+    b: int = Field(default=0, validation_alias=AliasChoices("b", "bee"))
+
+
+class Model14(BaseModel):
+    model_config = ConfigDict(validate_by_name=True, validate_by_alias=True)
+
+    a: int
+    b: int = Field(default=0, validation_alias="bee")
+
+
+class Model15(BaseModel):
+    model_config = ConfigDict(group_by="a")
+
+    a: int
+    b: list[int] = Field(default=[], validation_alias=AliasChoices("b", "bee"))
 
 
 grouped_data = [
@@ -248,6 +272,31 @@ params: list[Parameter] = [
                 {"a": 3, "nested": {"a": 3, "b": [], "c": [1], "d": [3], "e": []}},
             ]
         ),
+    ),
+    # aliased fields with defaults and no matching column in the data (#107)
+    Parameter(
+        model=Model12,
+        data=data,
+        bindings=snapshot([{"a": 1}, {"a": 2}, {"a": 3}]),
+        model_dump=snapshot([{"a": 1, "b": 0}, {"a": 2, "b": 0}, {"a": 3, "b": 0}]),
+    ),
+    Parameter(
+        model=Model13,
+        data=data,
+        bindings=snapshot([{"a": 1}, {"a": 2}, {"a": 3}]),
+        model_dump=snapshot([{"a": 1, "b": 0}, {"a": 2, "b": 0}, {"a": 3, "b": 0}]),
+    ),
+    Parameter(
+        model=Model14,
+        data=data,
+        bindings=snapshot([{"a": 1}, {"a": 2}, {"a": 3}]),
+        model_dump=snapshot([{"a": 1, "b": 0}, {"a": 2, "b": 0}, {"a": 3, "b": 0}]),
+    ),
+    Parameter(
+        model=Model15,
+        data=grouped_data,
+        bindings=snapshot([{"a": 1}, {"a": 2}, {"a": 3}]),
+        model_dump=snapshot([{"a": 1, "b": []}, {"a": 2, "b": []}, {"a": 3, "b": []}]),
     ),
 ]
 

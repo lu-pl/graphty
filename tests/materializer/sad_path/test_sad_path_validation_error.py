@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import pytest
 from graphty import ConfigDict, ModelMaterializer
 from inline_snapshot import snapshot
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import AliasChoices, BaseModel, Field, ValidationError
 
 
 class Model1(BaseModel):
@@ -38,6 +38,11 @@ class Model6(BaseModel):
 
 class Model7(BaseModel):
     nested: Model6
+
+
+class Model8(BaseModel):
+    x: int
+    y: int = Field(validation_alias=AliasChoices("a", "b"))
 
 
 data = [
@@ -141,6 +146,18 @@ ALIAS
         exception_message=snapshot("""\
 1 validation error for Model7
 nested.ALIAS
+  Field required [type=missing, input_value={'x': 1}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing\
+"""),
+    ),
+    # Unresolvable AliasChoice without default is forwarded to Pydantic (#107).
+    Parameter(
+        model=Model8,
+        data=data,
+        bindings=snapshot([{"x": 1}, {"x": 2}, {"x": 3}]),
+        exception_message=snapshot("""\
+1 validation error for Model8
+a
   Field required [type=missing, input_value={'x': 1}, input_type=dict]
     For further information visit https://errors.pydantic.dev/2.12/v/missing\
 """),
