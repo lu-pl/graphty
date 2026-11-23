@@ -1,7 +1,6 @@
 from collections import UserDict
 from collections.abc import Callable, Iterator
 
-from graphty.utils.exceptions import AliasResolutionError
 from pydantic import AliasChoices, BaseModel
 from pydantic.fields import FieldInfo
 
@@ -18,7 +17,9 @@ class AliasMap(UserDict):
     the mapping would compute to {"a": "x", "y": y}.
 
     Alias choices, alias generators and alias priority are supported;
-    alias choices are resolved against a projection.
+    alias choices are resolved against a projection. If none of the alias
+    choices is in the projection, the field name is used as a fallback,
+    which leaves default handling to Pydantic.
 
     Note that AliasPath is currently not supported.
     """
@@ -54,16 +55,8 @@ class AliasMap(UserDict):
                     alias: str | None = next(
                         (i for i in aliases if i in self.projection), None
                     )
+                    yield (k, k) if alias is None else (k, alias)
 
-                    if alias is None:
-                        raise AliasResolutionError(
-                            field_name=k,
-                            model=self.model,
-                            aliases=aliases,
-                            projection=self.projection,
-                        )
-
-                    yield (k, alias)
                 case _:  # pragma: no cover; unreachable
                     assert False, "This should never happen."
 

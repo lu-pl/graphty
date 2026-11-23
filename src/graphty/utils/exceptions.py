@@ -41,31 +41,3 @@ class MissingDiscriminatorError(Exception):
             "Multi-Model unions must be discriminated unions. "
             f"Unable to extract discriminator for union type '{self.type_form}'."
         )
-
-
-class AliasResolutionError(Exception):
-    def __init__(
-        self,
-        field_name: str,
-        model: type[BaseModel],
-        aliases: list[str],
-        projection: set[str],
-    ) -> None:
-        self.field_name = field_name
-        self.model = model
-        self.aliases = aliases
-        self.projection = projection
-
-        super().__init__(field_name, model, aliases, projection)
-
-    def __str__(self) -> str:
-        reason: str = (
-            f"None of computed aliases '{self.aliases}' "
-            f"in input data projection '{self.projection}'."
-            if self.projection
-            else "Empty or missing input data projection."
-        )
-        return (
-            f"Unable to resolve AliasChoice for field '{self.field_name}' "
-            f"of model '{self.model.__name__}': {reason}"
-        )
