@@ -1,8 +1,10 @@
+from typing import NotRequired
+
 from pydantic import ConfigDict as PydanticConfigDict
 
 
 class ConfigDict(PydanticConfigDict):
-    group_by: str
+    group_by: NotRequired[str]
 
 
 class Opaque:
