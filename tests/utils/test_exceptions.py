@@ -7,7 +7,6 @@ from typing import NamedTuple, cast
 
 import pytest
 from graphty.utils.exceptions import (
-    AliasResolutionError,
     InvalidGroupByError,
     MissingDiscriminatorError,
     MissingGroupByError,
@@ -47,22 +46,6 @@ params: list[ExceptionTestParameter] = [
         exception=MissingDiscriminatorError(type_form=cast(TypeForm, Model1 | Model2)),
         expected_message=snapshot(
             "Multi-Model unions must be discriminated unions. Unable to extract discriminator for union type 'tests.utils.test_exceptions.Model1 | tests.utils.test_exceptions.Model2'."
-        ),
-    ),
-    ExceptionTestParameter(
-        exception=AliasResolutionError(
-            field_name="x", model=Model1, aliases=["a", "b"], projection=set()
-        ),
-        expected_message=snapshot(
-            "Unable to resolve AliasChoice for field 'x' of model 'Model1': Empty or missing input data projection."
-        ),
-    ),
-    ExceptionTestParameter(
-        exception=AliasResolutionError(
-            field_name="x", model=Model1, aliases=["a", "b"], projection={"c"}
-        ),
-        expected_message=snapshot(
-            "Unable to resolve AliasChoice for field 'x' of model 'Model1': None of computed aliases '['a', 'b']' in input data projection '{'c'}'."
         ),
     ),
 ]
