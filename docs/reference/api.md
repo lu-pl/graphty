@@ -31,5 +31,3 @@ Everything below is importable directly from the `graphty` package.
 ::: graphty.InvalidGroupByError
 
 ::: graphty.MissingDiscriminatorError
-
-::: graphty.AliasResolutionError
