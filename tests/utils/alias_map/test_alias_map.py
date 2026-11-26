@@ -157,10 +157,10 @@ params: list[Parameter] = [
     # Single entry AliasChoice should behave like a regular alias parameter and
     # therefore is decidable regardless of the projection.
     Parameter(model=Model8, projection=set(), expected=snapshot({"x": "a"})),
-    # Unresolvable AliasChoice falls back to the field name and leaves default
-    # handling to Pydantic (#107).
-    Parameter(model=Model9, projection=set(), expected=snapshot({"x": "x"})),
-    Parameter(model=Model9, projection={"y", "z"}, expected=snapshot({"x": "x"})),
+    # Unresolvable AliasChoice falls back to the first choice and leaves default
+    # handling to Pydantic (#117).
+    Parameter(model=Model9, projection=set(), expected=snapshot({"x": "a"})),
+    Parameter(model=Model9, projection={"y", "z"}, expected=snapshot({"x": "a"})),
 ]
 
 
