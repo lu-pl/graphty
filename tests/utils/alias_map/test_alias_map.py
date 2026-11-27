@@ -94,6 +94,12 @@ class Model9(BaseModel):
     x: int = Field(validation_alias=AliasChoices("a", "b"))
 
 
+class Model10(BaseModel):
+    model_config = ConfigDict(validate_by_alias=True, validate_by_name=True)
+
+    my_field: str = Field(validation_alias=AliasChoices("my_alias", "my_other_alias"))
+
+
 @dataclass
 class Parameter:
     model: object
@@ -161,6 +167,34 @@ params: list[Parameter] = [
     # handling to Pydantic (#117).
     Parameter(model=Model9, projection=set(), expected=snapshot({"x": "a"})),
     Parameter(model=Model9, projection={"y", "z"}, expected=snapshot({"x": "a"})),
+    # With validate_by_name=True, Pydantic tries aliases first and the field name
+    # last; the field name must not take precedence over a present alias.
+    Parameter(
+        model=Model6,
+        projection={"my_field", "my_alias"},
+        expected=snapshot({"my_field": "my_alias"}),
+    ),
+    Parameter(
+        model=Model10,
+        projection={"my_field", "my_other_alias"},
+        expected=snapshot({"my_field": "my_other_alias"}),
+    ),
+    # Alias choices are tried in declared order.
+    Parameter(
+        model=Model10,
+        projection={"my_field", "my_alias", "my_other_alias"},
+        expected=snapshot({"my_field": "my_alias"}),
+    ),
+    # The field name is the last resort.
+    Parameter(
+        model=Model10,
+        projection={"my_field"},
+        expected=snapshot({"my_field": "my_field"}),
+    ),
+    # Unresolvable: falls back to the first choice, not the field name (#117).
+    Parameter(
+        model=Model10, projection=set(), expected=snapshot({"my_field": "my_alias"})
+    ),
 ]
 
 
