@@ -93,8 +93,8 @@ class AliasMap(UserDict):
                 )
             case True, True:
                 return lambda field_name, field_info: [
-                    field_name,
                     *self._compute_alias_candidates(field_info=field_info),
+                    field_name,
                 ]
             case (
                 False,
