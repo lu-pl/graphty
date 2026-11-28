@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.9.0](https://github.com/lu-pl/graphty/compare/v0.8.0...v0.9.0) (2026-11-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* **alias_map:** forward unresolvable alias to Pydantic level
+
+### Bug Fixes
+
+* **alias_map:** append `field_name` in alias resolution order ([6eb2d5f](https://github.com/lu-pl/graphty/commit/6eb2d5fdd26835bdf0a5f5f694e5f3653d379353))
+* **alias_map:** forward first alias for unresolvable alias choices ([eaf026b](https://github.com/lu-pl/graphty/commit/eaf026bd8d3380f0eaeb5ddb5f278a4653e704c1))
+* **alias_map:** forward unresolvable alias to Pydantic level ([0293ead](https://github.com/lu-pl/graphty/commit/0293eadde9e6ceebdd20d16b9acdce986bdc44cd))
+* **exceptions:** use `__str__` in parametrized custom exceptions ([651f29b](https://github.com/lu-pl/graphty/commit/651f29b46c115c1c96821f846cbd7c265028ee3f))
+* **planner:** handle default values in scalar aggregation ([f3f365e](https://github.com/lu-pl/graphty/commit/f3f365e605b3e68557a1d12db5a5c98a34c04374))
+* **planner:** implement support for default values in unions ([56ac2ac](https://github.com/lu-pl/graphty/commit/56ac2acaf775c8d8248366d994ea7349a33fe0c1))
+* **types:** make `graphty.ConfigDict.group_by` NotRequired ([d12317b](https://github.com/lu-pl/graphty/commit/d12317b5b612414009093fa939f93ddcbaf302ac))
+
+
+### Documentation
+
+* **mkdocs:** add mkdocs static page ([8cebef7](https://github.com/lu-pl/graphty/commit/8cebef7aa8dc318aff29cd1db63c833b6d4c524b))
+* **mkdocs:** remove `AliasResolutionError` from the API docs ([544e89d](https://github.com/lu-pl/graphty/commit/544e89d4a4060b33932d01c4856e4770577d4761))
+* **readme:** add docs page badge and links ([5100cec](https://github.com/lu-pl/graphty/commit/5100cec3f96bc1cfb188f1e7ffed744750f04a74))
+
 ## [0.8.0](https://github.com/lu-pl/graphty/compare/v0.7.1...v0.8.0) (2026-10-08)
 
 
