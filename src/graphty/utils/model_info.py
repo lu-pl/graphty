@@ -1,10 +1,11 @@
 from collections import UserDict
 from functools import cached_property
 
-from graphty.utils.alias_map import AliasMap
-from graphty.utils.exceptions import InvalidGroupByError
-from graphty.utils.type_utils import is_structured_field_static_type
 from pydantic import BaseModel
+
+from graphty.utils.alias_map import AliasMap
+from graphty.utils.exceptions import GroupByColumnNotFoundError, InvalidGroupByError
+from graphty.utils.type_utils import is_structured_field_static_type
 
 
 class ModelInfo[TModel: type[BaseModel]]:
@@ -38,7 +39,19 @@ class ModelInfo[TModel: type[BaseModel]]:
         if group_by not in applicable_fields:
             raise InvalidGroupByError(group_by_value=group_by, model=self.model)
 
-        return self.alias_map[group_by]
+        group_by_column: str = self.alias_map[group_by]
+
+        # Unlike absent value columns, absent grouping columns cannot be forwarded to Pydantic;
+        # also, a default value on a grouping key field cannot meaningfully partition rows.
+        if group_by_column not in self.base_cols:
+            raise GroupByColumnNotFoundError(
+                model=self.model,
+                group_by_value=group_by,
+                group_by_column=group_by_column,
+                projection=self.base_cols,
+            )
+
+        return group_by_column
 
 
 class ModelInfoRegistry(UserDict[type[BaseModel], ModelInfo]):
