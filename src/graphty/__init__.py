@@ -3,6 +3,9 @@ from graphty.utils.aggregation import Aggregation as Aggregation
 from graphty.utils.aggregation import Collect as Collect
 from graphty.utils.aggregation import Reduce as Reduce
 from graphty.utils.alias_map import AliasMap as AliasMap
+from graphty.utils.exceptions import (
+    GroupByColumnNotFoundError as GroupByColumnNotFoundError,
+)
 from graphty.utils.exceptions import InvalidGroupByError as InvalidGroupByError
 from graphty.utils.exceptions import (
     MissingDiscriminatorError as MissingDiscriminatorError,
