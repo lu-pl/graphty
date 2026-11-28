@@ -7,6 +7,7 @@ from typing import NamedTuple, cast
 
 import pytest
 from graphty.utils.exceptions import (
+    GroupByColumnNotFoundError,
     InvalidGroupByError,
     MissingDiscriminatorError,
     MissingGroupByError,
@@ -40,6 +41,17 @@ params: list[ExceptionTestParameter] = [
         exception=InvalidGroupByError(model=Model1, group_by_value="y"),
         expected_message=snapshot(
             "Invalid grouping key 'y' for 'Model1'. Grouping keys must reference scalar model fields."
+        ),
+    ),
+    ExceptionTestParameter(
+        exception=GroupByColumnNotFoundError(
+            model=Model1,
+            group_by_value="x",
+            group_by_column="a",
+            projection={"y", "z"},
+        ),
+        expected_message=snapshot(
+            "Grouping key 'x' for 'Model1' does not reference a column in the data projection. Expected column 'a' (alias-resolved); available columns: ['y', 'z']."
         ),
     ),
     ExceptionTestParameter(
